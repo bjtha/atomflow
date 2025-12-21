@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from aspects import NameAspect, ElementAspect, ResNameAspect, Aspect
+from atomflow.aspects import NameAspect, ElementAspect, ResNameAspect, Aspect
 
 def aspects(*__aspects):
     def deco(cls):
@@ -51,5 +51,4 @@ class ResNameComponent(Component):
         return self._resname
 
 if __name__ == '__main__':
-    resn = ResNameComponent("Met")
-    print(resn)
+    pass
