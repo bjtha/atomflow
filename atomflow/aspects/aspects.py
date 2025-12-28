@@ -33,13 +33,6 @@ class ResIndexAspect(Aspect, Protocol):
 
 
 @runtime_checkable
-class ProteinAspect(Aspect, Protocol):
-
-    @property
-    def protein(self) -> bool: pass
-
-
-@runtime_checkable
 class PolymerAspect(Aspect, Protocol):
 
     @property
@@ -141,6 +134,3 @@ class PositionAspect(Aspect, Protocol):
 
     @property
     def position(self) -> str: pass
-
-if __name__ == '__main__':
-    print(repr(NameAspect))

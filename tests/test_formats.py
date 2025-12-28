@@ -3,6 +3,8 @@ import pathlib
 
 import pytest
 
+from atomflow.atom import Atom
+from atomflow.components import *
 from atomflow.formats import *
 
 PDB_STRUCTURES_FOLDER = pathlib.Path("tests/data/structures/pdb")
@@ -43,7 +45,6 @@ def test_pdb_atom_parsing(example_pdb_atoms):
             mismatches.append((source, record, atom, reconstituted))
 
     if len(mismatches) > 0:
-
         mm = mismatches[0]
         source, original, atom, recon = mm
         print(f"{source: <12}{original}")
@@ -51,3 +52,25 @@ def test_pdb_atom_parsing(example_pdb_atoms):
         print(f"Atom representation: {atom}")
 
         raise Exception(f"{len(mismatches)} mismatches:")
+
+
+def test_pdb_file_read():
+
+    file_atom = PDBFormat.read_file(PDB_STRUCTURES_FOLDER / "simple.pdb")
+
+    test_atom = [
+        Atom(
+            PolymerComponent("protein"),
+            IndexComponent(1),
+            NameComponent("N"),
+            ResNameComponent("MET"),
+            ChainComponent("A"),
+            ResIndexComponent(1),
+            CoordinatesComponent(1, 1, 1),
+            OccupancyComponent(1),
+            TemperatureFactorComponent(10),
+            ElementComponent("N"),
+        )
+    ]
+
+    assert file_atom == test_atom

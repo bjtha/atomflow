@@ -1,3 +1,3 @@
-from atomflow.formats.formats import (
+from atomflow.formats.pdb import (
     PDBFormat
 )

@@ -25,28 +25,29 @@ class PDBFormat:
     @staticmethod
     def atom_from_line(line):
 
-        record_type = line[:6].strip()  # Left-justified
+        record_type = line[:6].strip()
         if record_type not in ("ATOM", "HETATM"):
             return
 
+        name = line[12:16].strip()
+        elem = line[76:78].strip()
+        res_name = line[17:20].strip()
+
         components = [
             IndexComponent(line[6:11]),
-            NameComponent(line[12:16].strip()),
-            ResNameComponent(line[17:20].strip()),
-            ChainComponent(line[21:22].strip()),
+            NameComponent(name),
+            ResNameComponent(res_name),
+            ChainComponent(line[21:22]),
             ResIndexComponent(line[22:26]),
             CoordinatesComponent(line[30:38], line[38:46], line[46:54]),
-            ElementComponent(line[76:78].strip()),
+            ElementComponent(elem),
         ]
 
         # Extract position part from name
-        name = line[12:16].strip()
-        elem = line[76:78].strip()
-        position = name[len(elem):]
-        components.append(PositionComponent(position))
+        if position := name[len(elem):]:
+            components.append(PositionComponent(position))
 
         # Determine polymer membership from residue name
-        res_name = line[17:20].strip()
         if res_name in AA_RES_CODES:
             components.append(PolymerComponent("protein"))
         elif res_name in DNA_RES_CODES:
@@ -84,7 +85,7 @@ class PDBFormat:
         # If the atom has the aspects needed to make a name field (element & position), build it
         if all(atom.implements(a) for a in (ElementAspect, PositionAspect)):
             name_field = f"{atom.element: >2}{atom.position: <2}"
-            # Hydrogen positions sometimes spill over on the right
+            # Hydrogen positions sometimes spill over on the right - remove leading space to correct
             if len(name_field) > 4:
                 name_field = name_field.strip()
         else:
@@ -103,14 +104,16 @@ class PDBFormat:
             f"{atom.x: >8.3f}{atom.y: >8.3f}{atom.z: >8.3f}{occ: >6.2f}{b: >6.2f}{_: >10}"\
             f"{atom.element :>2}{charge :<2}"
 
+    @classmethod
+    def read_file(cls, path) -> list[Atom]:
+
+        with open(path, "r") as file:
+            atoms = [PDBFormat.atom_from_line(ln) for ln in file.readlines()
+                     if ln.startswith("ATOM") or ln.startswith("HETATM")]
+
+        return atoms
 
 if __name__ == '__main__':
-    line = "ATOM     97 HH12 ARG A   5      -0.465 -17.875  -4.318  1.00  0.00           H  "
-    atom = PDBFormat.atom_from_line(line)
-
-    print(atom.position)
-
-    converted = PDBFormat.line_from_atom(atom)
-
-    print(line)
-    print(converted)
+    atoms = PDBFormat.read_file(r"C:\Users\benth\Documents\coding\python_projects\atomflow\tests\data\structures\pdb\5ZQI.pdb")
+    for a in atoms:
+        print(a)

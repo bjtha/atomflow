@@ -1,4 +1,6 @@
 from collections.abc import Iterable
+from typing import Self
+
 from atomflow.aspects import *
 
 
@@ -16,8 +18,14 @@ class Component:
     aspects: Iterable[Aspect] | None = None
 
     def __repr__(self):
-        values = [f"{p}={getattr(self, p)}" for p in self.get_prop_names()]
+        values = [f"{p}={getattr(self, p)}" for p in sorted(self.get_prop_names())]
         return f"{self.__class__.__name__}({', '.join(values)})"
+
+    def __eq__(self, other: Self):
+        return str(self) == str(other)
+
+    def __hash__(self):
+        return hash(str(self))
 
     def get_prop_names(self):
         return [k for k, v in self.__class__.__dict__.items() if isinstance(v, property)]
@@ -27,7 +35,7 @@ class Component:
 class NameComponent(Component):
 
     def __init__(self, name):
-        self._name = str(name)
+        self._name = str(name).strip()
 
     @property
     def name(self) -> str:
@@ -38,7 +46,7 @@ class NameComponent(Component):
 class ElementComponent(Component):
 
     def __init__(self, element):
-        self._element = str(element)
+        self._element = str(element).strip()
 
     @property
     def element(self) -> str:
@@ -49,7 +57,7 @@ class ElementComponent(Component):
 class ResNameComponent(Component):
 
     def __init__(self, resname):
-        self._resname = str(resname)
+        self._resname = str(resname).strip()
 
     @property
     def resname(self) -> str:
@@ -67,17 +75,6 @@ class ResIndexComponent(Component):
         return self._resindex
 
 
-@aspects(ProteinAspect)
-class ProteinComponent(Component):
-
-    def __init__(self, protein):
-        self._protein = bool(protein)
-
-    @property
-    def protein(self) -> bool:
-        return self._protein
-
-
 @aspects(IndexAspect)
 class IndexComponent(Component):
 
@@ -93,7 +90,7 @@ class IndexComponent(Component):
 class AltLocComponent(Component):
 
     def __init__(self, altloc):
-        self._altloc = str(altloc)
+        self._altloc = str(altloc).strip()
 
     @property
     def altloc(self) -> str:
@@ -104,7 +101,7 @@ class AltLocComponent(Component):
 class ChainComponent(Component):
 
     def __init__(self, chain):
-        self._chain = str(chain)
+        self._chain = str(chain).strip()
 
     @property
     def chain(self) -> str:
@@ -115,7 +112,7 @@ class ChainComponent(Component):
 class InsertionComponent(Component):
 
     def __init__(self, insertion):
-        self._insertion = str(insertion)
+        self._insertion = str(insertion).strip()
 
     @property
     def insertion(self) -> str:
@@ -169,7 +166,7 @@ class TemperatureFactorComponent(Component):
 class ChargeComponent(Component):
 
     def __init__(self, charge):
-        self._charge = str(charge)
+        self._charge = str(charge).strip()
 
     @property
     def charge(self) -> str:
@@ -202,7 +199,7 @@ class BranchComponent(Component):
 class PositionComponent(Component):
 
     def __init__(self, position):
-        self._position = position
+        self._position = str(position).strip()
 
     @property
     def position(self) -> str:
@@ -213,7 +210,7 @@ class PositionComponent(Component):
 class PolymerComponent(Component):
 
     def __init__(self, polymer):
-        self._polymer = str(polymer)
+        self._polymer = str(polymer).strip()
 
     @property
     def polymer(self) -> str:

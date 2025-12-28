@@ -13,7 +13,6 @@ from atomflow.components.components import (
     OccupancyComponent,
     PolymerComponent,
     PositionComponent,
-    ProteinComponent,
     RemotenessComponent,
     ResIndexComponent,
     ResNameComponent,

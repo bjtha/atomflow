@@ -1,3 +1,5 @@
+from typing import Self
+
 from atomflow.aspects import Aspect
 from atomflow.components import Component, NameComponent, ResNameComponent
 
@@ -22,12 +24,12 @@ class Atom:
             return f"{self:s}"
 
         elif format_spec == 'l':
-            cmp_vals = [str(cmps[-1]) for cmps in self._by_aspect.values()]
+            cmp_vals = [str(cmps[-1]) for cmps in sorted(self._by_aspect.values())]
             cmp_lines = "\n\t".join(cmp_vals)
             return f"Atom(\n\t{cmp_lines}\n\t)"
 
         elif format_spec == 's':
-            vals = [f"{kw}={self[kw]}" for kw in self._by_keyword]
+            vals = [f"{kw}={self[kw]}" for kw in sorted(self._by_keyword)]
             return f"Atom({', '.join(vals)})"
 
         else:
@@ -35,6 +37,9 @@ class Atom:
 
     def __repr__(self):
         return f"{self}"
+
+    def __eq__(self, other: Self):
+        return str(self) == str(other)
 
     def add(self, comp: Component):
         for asp in comp.aspects:

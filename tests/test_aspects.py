@@ -5,7 +5,7 @@ import pytest
 from atomflow.aspects import *
 
 @pytest.fixture
-def example_aspect():
+def test_aspect():
 
     @runtime_checkable
     class TestAspect(Aspect, Protocol):
@@ -15,19 +15,20 @@ def example_aspect():
 
     return TestAspect
 
+
 @pytest.fixture
-def bad_aspect():
+def second_aspect():
 
     @runtime_checkable
-    class BadAspect(Aspect, Protocol):
+    class SecondAspect(Aspect, Protocol):
 
         @property
-        def _(self) -> str: pass
+        def item(self) -> str: pass
 
-    return BadAspect
+    return SecondAspect
 
 
-def test_protocol_adoption(example_aspect):
+def test_protocol_adoption(test_aspect):
 
     class Adoptee:
 
@@ -35,4 +36,4 @@ def test_protocol_adoption(example_aspect):
         def value(self) -> str:
             return "hello"
 
-    assert isinstance(Adoptee, example_aspect)
+    assert isinstance(Adoptee, test_aspect)
