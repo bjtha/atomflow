@@ -1,15 +1,37 @@
 import os
 import pathlib
+
 import pytest
 
 from atomflow.formats import *
-from atomflow.formats.formats import PDBFormat
+
+PDB_STRUCTURES_FOLDER = pathlib.Path("tests/data/structures/pdb")
+PDB_ATOM_SAMPLE = pathlib.Path("tests/data/pdb_atom_sample.txt")
 
 
-def test_pdb_atom_parsing():
+@pytest.fixture
+def example_pdb_atoms() -> list[tuple]:
 
-    with open("tests/data/atom_sample.txt") as file:
-        atom_records = [(line[:80], line[80:90]) for line in file.readlines()]
+    """Provides records from PDB atom sample file, as a list of (record, source_file)"""
+
+    if os.path.exists(PDB_ATOM_SAMPLE):
+        with open(PDB_ATOM_SAMPLE) as file:
+            return [(line[:80], line[80:90]) for line in file.readlines()]
+    else:
+        msg = f"PDB atom sample file not found at '{PDB_ATOM_SAMPLE}'. See tests.utils for functions to build one."
+        raise FileNotFoundError(msg)
+
+
+def test_pdb_atom_parsing(example_pdb_atoms):
+
+    """
+    Tests that PDB atom/hetatm records can be converted into Atom objects and back again without loss.
+
+    :param example_pdb_atoms:
+    :return:
+    """
+
+    atom_records = example_pdb_atoms
 
     mismatches = []
 

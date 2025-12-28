@@ -1,3 +1,5 @@
+from typing import Protocol, runtime_checkable
+
 import pytest
 
 from atomflow.aspects import *

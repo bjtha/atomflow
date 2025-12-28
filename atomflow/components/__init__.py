@@ -1,4 +1,5 @@
 from atomflow.components.components import (
+    aspects,
     AltLocComponent,
     BranchComponent,
     ChainComponent,
