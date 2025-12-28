@@ -2,11 +2,18 @@ from atomflow.components import *
 from atomflow.aspects import *
 from atomflow.atom import Atom
 
+AA_RES_CODES = {
+    "ALA": "A", "CYS": "C", "ASP": "D", "GLU": "E", "PHE": "F",
+    "GLY": "G", "HIS": "H", "ILE": "I", "LYS": "K", "LEU": "L",
+    "MET": "M", "ASN": "N", "PRO": "P", "GLN": "Q", "ARG": "R",
+    "SER": "S", "THR": "T", "VAL": "V", "TRP": "W", "TYR": "Y",
+}
+DNA_RES_CODES = {"DA", "DG", "DT", "DC"}
+RNA_RES_CODES = {"A", "G", "U", "C"}
 
 class PDBFormat:
 
     recipe = {
-        ProteinAspect,
         IndexAspect,
         ElementAspect,
         ResNameAspect,
@@ -23,14 +30,29 @@ class PDBFormat:
             return
 
         components = [
-            ProteinComponent(True if record_type == "ATOM" else False),
             IndexComponent(line[6:11]),
+            NameComponent(line[12:16].strip()),
             ResNameComponent(line[17:20].strip()),
             ChainComponent(line[21:22].strip()),
             ResIndexComponent(line[22:26]),
             CoordinatesComponent(line[30:38], line[38:46], line[46:54]),
             ElementComponent(line[76:78].strip()),
         ]
+
+        # Extract position part from name
+        name = line[12:16].strip()
+        elem = line[76:78].strip()
+        position = name[len(elem):]
+        components.append(PositionComponent(position))
+
+        # Determine polymer membership from residue name
+        res_name = line[17:20].strip()
+        if res_name in AA_RES_CODES:
+            components.append(PolymerComponent("protein"))
+        elif res_name in DNA_RES_CODES:
+            components.append(PolymerComponent("dna"))
+        elif res_name in RNA_RES_CODES:
+            components.append(PolymerComponent("rna"))
 
         # Optional fields
         if altloc := line[16:17].strip():
@@ -48,9 +70,6 @@ class PDBFormat:
         if charge := line[78:80].strip():
             components.append(ChargeComponent(charge))
 
-        name_field = line[12:16]
-        components.append(PDBNameFieldComponent(name_field))
-
         return Atom(*components)
 
     @classmethod
@@ -60,47 +79,36 @@ class PDBFormat:
         if missing:
             raise Exception(f"Could not create PDB line from {atom}")
 
-        record_type = "ATOM" if atom.protein else "HETATM"
-        atom_index = atom.index
-        element = atom.element
-        altloc = atom.altloc if atom.implements(AltLocAspect) else ''
-        resname = atom.resname
-        chain = atom.chain
-        resindex = atom.resindex
-        insertion = atom.insertion if atom.implements(InsertionAspect) else ''
-        x_coord = f"{atom.x:.3f}"
-        y_coord = f"{atom.y:.3f}"
-        z_coord = f"{atom.z:.3f}"
-        occupancy = f"{atom.occupancy:.2f}" if atom.implements(OccupancyAspect) else ''
-        b_factor = f"{atom.temp:.2f}" if atom.implements(TemperatureFactorAspect) else ''
-        charge = atom.charge if atom.implements(ChargeAspect) else ''
-        _ = ' '
+        record_type = "ATOM" if atom.implements(PolymerAspect) else "HETATM"
 
         # If the atom has the aspects needed to make a name field (element & position), build it
-        if all(atom.implements(a) for a in (ElementAspect, RemotenessAspect, BranchAspect)):
-            name_field = f"{atom.element: >2}{atom.remoteness :>1}{atom.branch :>1}"
-
-        # Alternatively, if the atom has a stored PDB name field, use that
-        elif atom.has(PDBNameFieldComponent):
-            name_field = atom.name_field
-
-        # Lastly, default to just using the element
+        if all(atom.implements(a) for a in (ElementAspect, PositionAspect)):
+            name_field = f"{atom.element: >2}{atom.position: <2}"
+            # Hydrogen positions sometimes spill over on the right
+            if len(name_field) > 4:
+                name_field = name_field.strip()
         else:
             name_field = f"{atom.element: >2}  "
 
-        line = \
-            f"{record_type: <6}{atom_index: >5}{_}{name_field}{altloc: >1}{resname: >3}{_}{chain}"\
-            f"{resindex: >4}{insertion: >1}{_: >3}"\
-            f"{x_coord: >8}{y_coord: >8}{z_coord: >8}{occupancy: >6}{b_factor: >6}{_: >10}"\
-            f"{element :>2}{charge :<2}"
+        altloc = atom.altloc if atom.implements(AltLocAspect) else ''
+        ins = atom.insertion if atom.implements(InsertionAspect) else ''
+        occ = atom.occupancy if atom.implements(OccupancyAspect) else ''
+        b = atom.temp if atom.implements(TemperatureFactorAspect) else ''
+        charge = atom.charge if atom.implements(ChargeAspect) else ''
+        _ = ' '
 
-        return line
+        return \
+            f"{record_type: <6}{atom.index: >5}{_}{name_field}{altloc: >1}"\
+            f"{atom.resname: >3}{_}{atom.chain}{atom.resindex: >4}{ins: >1}{_: >3}"\
+            f"{atom.x: >8.3f}{atom.y: >8.3f}{atom.z: >8.3f}{occ: >6.2f}{b: >6.2f}{_: >10}"\
+            f"{atom.element :>2}{charge :<2}"
+
 
 if __name__ == '__main__':
-    line = "ATOM   1283  OD2 ASP B  68      20.233 -23.581  28.711  1.00 76.04           O1-"
+    line = "ATOM     97 HH12 ARG A   5      -0.465 -17.875  -4.318  1.00  0.00           H  "
     atom = PDBFormat.atom_from_line(line)
 
-    print(atom.name_field)
+    print(atom.position)
 
     converted = PDBFormat.line_from_atom(atom)
 

@@ -40,6 +40,13 @@ class ProteinAspect(Aspect, Protocol):
 
 
 @runtime_checkable
+class PolymerAspect(Aspect, Protocol):
+
+    @property
+    def polymer(self) -> str: pass
+
+
+@runtime_checkable
 class IndexAspect(Aspect, Protocol):
 
     @property
@@ -129,5 +136,11 @@ class NameFieldAspect(Aspect, Protocol):
     def name_field(self) -> str: pass
 
 
+@runtime_checkable
+class PositionAspect(Aspect, Protocol):
+
+    @property
+    def position(self) -> str: pass
+
 if __name__ == '__main__':
-    pass
+    print(repr(NameAspect))

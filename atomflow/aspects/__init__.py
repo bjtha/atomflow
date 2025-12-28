@@ -12,6 +12,8 @@ from atomflow.aspects.aspects import (
     NameAspect,
     NameFieldAspect,
     OccupancyAspect,
+    PolymerAspect,
+    PositionAspect,
     ProteinAspect,
     RemotenessAspect,
     ResNameAspect,

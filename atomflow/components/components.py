@@ -198,19 +198,27 @@ class BranchComponent(Component):
         return self._branch
 
 
-@aspects(NameAspect, NameFieldAspect)
-class PDBNameFieldComponent(Component):
+@aspects(PositionAspect)
+class PositionComponent(Component):
 
-    def __init__(self, name_field):
-        self._name_field = name_field
-
-    @property
-    def name_field(self) -> str:
-        return self._name_field
+    def __init__(self, position):
+        self._position = position
 
     @property
-    def name(self) -> str:
-        return self._name_field.strip()
+    def position(self) -> str:
+        return self._position
+
+
+@aspects(PolymerAspect)
+class PolymerComponent(Component):
+
+    def __init__(self, polymer):
+        self._polymer = str(polymer)
+
+    @property
+    def polymer(self) -> str:
+        return self._polymer
+
 
 if __name__ == '__main__':
     pass
