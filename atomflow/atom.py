@@ -1,12 +1,12 @@
-from mailbox import FormatError
-
-from aspects import Aspect
-from components import Component, NameComponent, ResNameComponent
+from atomflow.aspects import Aspect
+from atomflow.components import Component, NameComponent, ResNameComponent
 
 class Atom:
-    def __init__(self):
+    def __init__(self, *components):
         self._by_aspect: dict[Aspect: list[Component]] = {}
         self._by_keyword: dict[str: list[Component]] = {}
+        for c in components:
+            self.add(c)
 
     def __getattr__(self, item):
         if comps := self._by_keyword.get(item):
@@ -45,6 +45,8 @@ class Atom:
     def implements(self, asp: Aspect):
         return asp in self._by_aspect
 
+    def has(self, cmp_type: type[Component]):
+        return any(isinstance(cmps[-1], cmp_type) for cmps in self._by_aspect.values())
 
 if __name__ == '__main__':
     atom = Atom()
