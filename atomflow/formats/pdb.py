@@ -1,6 +1,10 @@
+import os
+from typing import Iterable
+
 from atomflow.components import *
 from atomflow.aspects import *
 from atomflow.atom import Atom
+from atomflow.formats import Format
 
 AA_RES_CODES = {
     "ALA": "A", "CYS": "C", "ASP": "D", "GLU": "E", "PHE": "F",
@@ -11,7 +15,7 @@ AA_RES_CODES = {
 DNA_RES_CODES = {"DA", "DG", "DT", "DC"}
 RNA_RES_CODES = {"A", "G", "U", "C"}
 
-class PDBFormat:
+class PDBFormat(Format):
 
     recipe = {
         IndexAspect,
@@ -23,7 +27,7 @@ class PDBFormat:
     }
 
     @staticmethod
-    def atom_from_line(line):
+    def atom_from_line(line: str) -> Atom | None:
 
         record_type = line[:6].strip()
         if record_type not in ("ATOM", "HETATM"):
@@ -33,7 +37,7 @@ class PDBFormat:
         elem = line[76:78].strip()
         res_name = line[17:20].strip()
 
-        components = [
+        cmps = [
             IndexComponent(line[6:11]),
             NameComponent(name),
             ResNameComponent(res_name),
@@ -45,36 +49,36 @@ class PDBFormat:
 
         # Extract position part from name
         if position := name[len(elem):]:
-            components.append(PositionComponent(position))
+            cmps.append(PositionComponent(position))
 
         # Determine polymer membership from residue name
         if res_name in AA_RES_CODES:
-            components.append(PolymerComponent("protein"))
+            cmps.append(PolymerComponent("protein"))
         elif res_name in DNA_RES_CODES:
-            components.append(PolymerComponent("dna"))
+            cmps.append(PolymerComponent("dna"))
         elif res_name in RNA_RES_CODES:
-            components.append(PolymerComponent("rna"))
+            cmps.append(PolymerComponent("rna"))
 
         # Optional fields
         if altloc := line[16:17].strip():
-            components.append(AltLocComponent(altloc))
+            cmps.append(AltLocComponent(altloc))
 
         if insertion := line[26:27].strip():
-            components.append(InsertionComponent(insertion))
+            cmps.append(InsertionComponent(insertion))
 
         if occupancy := line[54:60].strip():
-            components.append(OccupancyComponent(occupancy))
+            cmps.append(OccupancyComponent(occupancy))
 
         if b_factor := line[60:66].strip():
-            components.append(TemperatureFactorComponent(b_factor))
+            cmps.append(TemperatureFactorComponent(b_factor))
 
         if charge := line[78:80].strip():
-            components.append(ChargeComponent(charge))
+            cmps.append(ChargeComponent(charge))
 
-        return Atom(*components)
+        return Atom(*cmps)
 
     @classmethod
-    def line_from_atom(cls, atom: Atom):
+    def line_from_atom(cls, atom: Atom) -> str:
 
         missing = [asp for asp in cls.recipe if not atom.implements(asp)]
         if missing:
@@ -82,8 +86,10 @@ class PDBFormat:
 
         record_type = "ATOM" if atom.implements(PolymerAspect) else "HETATM"
 
+        if atom.name == "UNK":
+            name_field = " UNK"
         # If the atom has the aspects needed to make a name field (element & position), build it
-        if all(atom.implements(a) for a in (ElementAspect, PositionAspect)):
+        elif all(atom.implements(a) for a in (ElementAspect, PositionAspect)):
             name_field = f"{atom.element: >2}{atom.position: <2}"
             # Hydrogen positions sometimes spill over on the right - remove leading space to correct
             if len(name_field) > 4:
@@ -105,7 +111,7 @@ class PDBFormat:
             f"{atom.element :>2}{charge :<2}"
 
     @classmethod
-    def read_file(cls, path) -> list[Atom]:
+    def read_file(cls, path: str | os.PathLike) -> list[Atom]:
 
         with open(path, "r") as file:
             atoms = [PDBFormat.atom_from_line(ln) for ln in file.readlines()
@@ -113,7 +119,12 @@ class PDBFormat:
 
         return atoms
 
+    @classmethod
+    def to_file(cls, atoms: Iterable[Atom], path: str | os.PathLike) -> None:
+
+        with open(path, "w") as file:
+            text = "\n".join(cls.line_from_atom(a) for a in atoms)
+            file.write(text + "\n")
+
 if __name__ == '__main__':
-    atoms = PDBFormat.read_file(r"C:\Users\benth\Documents\coding\python_projects\atomflow\tests\data\structures\pdb\5ZQI.pdb")
-    for a in atoms:
-        print(a)
+    pass

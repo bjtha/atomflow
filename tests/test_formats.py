@@ -12,7 +12,7 @@ PDB_ATOM_SAMPLE = pathlib.Path("tests/data/pdb_atom_sample.txt")
 
 
 @pytest.fixture
-def example_pdb_atoms() -> list[tuple]:
+def example_pdb_atom_records() -> list[tuple]:
 
     """Provides records from PDB atom sample file, as a list of (record, source_file)"""
 
@@ -23,8 +23,23 @@ def example_pdb_atoms() -> list[tuple]:
         msg = f"PDB atom sample file not found at '{PDB_ATOM_SAMPLE}'. See tests.utils for functions to build one."
         raise FileNotFoundError(msg)
 
+@pytest.fixture
+def test_atom():
 
-def test_pdb_atom_parsing(example_pdb_atoms):
+    return Atom(
+        PolymerComponent("protein"),
+        IndexComponent(1),
+        NameComponent("N"),
+        ResNameComponent("MET"),
+        ChainComponent("A"),
+        ResIndexComponent(1),
+        CoordinatesComponent(1, 1, 1),
+        OccupancyComponent(1),
+        TemperatureFactorComponent(10),
+        ElementComponent("N"),
+        )
+
+def test_pdb_atom_parsing(example_pdb_atom_records):
 
     """
     Tests that PDB atom/hetatm records can be converted into Atom objects and back again without loss.
@@ -33,7 +48,7 @@ def test_pdb_atom_parsing(example_pdb_atoms):
     :return:
     """
 
-    atom_records = example_pdb_atoms
+    atom_records = example_pdb_atom_records
 
     mismatches = []
 
@@ -54,23 +69,42 @@ def test_pdb_atom_parsing(example_pdb_atoms):
         raise Exception(f"{len(mismatches)} mismatches:")
 
 
-def test_pdb_file_read():
+def test_pdb_file_read(test_atom):
 
     file_atom = PDBFormat.read_file(PDB_STRUCTURES_FOLDER / "simple.pdb")
+    assert file_atom == [test_atom]
 
-    test_atom = [
-        Atom(
-            PolymerComponent("protein"),
-            IndexComponent(1),
-            NameComponent("N"),
-            ResNameComponent("MET"),
-            ChainComponent("A"),
-            ResIndexComponent(1),
-            CoordinatesComponent(1, 1, 1),
-            OccupancyComponent(1),
-            TemperatureFactorComponent(10),
-            ElementComponent("N"),
-        )
-    ]
 
-    assert file_atom == test_atom
+def test_pdb_file_write(test_atom):
+
+    PDBFormat.to_file([test_atom],"./test.pdb")
+    with open(PDB_STRUCTURES_FOLDER / "simple.pdb") as subject:
+        with open("./test.pdb") as query:
+            sub_text = subject.read().strip()
+            que_text = query.read().strip()
+
+    os.remove("./test.pdb")
+    assert sub_text == que_text
+
+
+def test_full_pdb_read_write():
+
+    """
+    Tests, for all structures in the dataset, that the atom representation built from
+    the original file is the same as that built from the file written from atomflow. I.e.,
+    tests for internal consistency between read and write, but does not guarantee that no information
+    is lost in the original file reading.
+
+    :return:
+    """
+
+    pdb_files = [f for f in os.listdir(PDB_STRUCTURES_FOLDER)
+                 if os.path.isfile(PDB_STRUCTURES_FOLDER / f)]
+
+    for filename in pdb_files:
+        atoms_original = PDBFormat.read_file(PDB_STRUCTURES_FOLDER / filename)
+        PDBFormat.to_file(atoms_original, "./temp.pdb")
+        atoms_new = PDBFormat.read_file("./temp.pdb")
+        os.remove("./temp.pdb")
+
+        assert atoms_original == atoms_new

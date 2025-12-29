@@ -122,4 +122,8 @@ def pdb_atom_sample(pdb_structures_path, outpath="tests/data/pdb_atom_sample.txt
         file.write("\n".join(samples))
 
 if __name__ == '__main__':
-    download_structures(["6LFE"], "pdb", outfolder="data/structures/6lfe")
+
+    pdb_files = [filename.strip(".pdb") for filename in os.listdir("data/structures/pdb")]
+    pdb_files.pop()
+
+    download_structures(pdb_files, "cif", outfolder="data/structures/cif")

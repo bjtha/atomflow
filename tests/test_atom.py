@@ -7,32 +7,32 @@ from tests.test_components import test_component, second_component
 
 def test_add_component(test_aspect, test_component):
 
-    atom = Atom()
+    atm = Atom()
     cmp = test_component(value=1)
 
     # Adding after initialisation
-    atom.add(cmp)
-    assert atom._by_aspect == {test_aspect: [cmp]}
-    assert atom._by_keyword == {"value": [cmp]}
+    atm.add(cmp)
+    assert atm._by_aspect == {test_aspect: [cmp]}
+    assert atm._by_keyword == {"value": [cmp]}
 
     # Adding during initialisation
-    atom = Atom(cmp)
-    assert atom._by_aspect == {test_aspect: [cmp]}
-    assert atom._by_keyword == {"value": [cmp]}
+    atm = Atom(cmp)
+    assert atm._by_aspect == {test_aspect: [cmp]}
+    assert atm._by_keyword == {"value": [cmp]}
 
 
 def test_referencing(test_component):
 
     cmp = test_component(value=1)
-    atom = Atom(cmp)
+    atm = Atom(cmp)
 
     # Getting underlying component data through getattr or getitem
-    assert atom.value == 1
-    assert atom["value"] == 1
+    assert atm.value == 1
+    assert atm["value"] == 1
 
     # Raising AttributeError when the data doesn't exist
     with pytest.raises(AttributeError):
-        _ = atom.item
+        _ = atm.item
 
 
 def test_aspect_check(test_component, test_aspect, second_aspect):
@@ -40,18 +40,18 @@ def test_aspect_check(test_component, test_aspect, second_aspect):
     cmp = test_component(value=1)
     assert second_aspect not in cmp.aspects  # Not a subclass of second_aspect
 
-    atom = Atom(cmp)
+    atm = Atom(cmp)
 
-    assert atom.implements(test_aspect)
-    assert not atom.implements(second_aspect)
+    assert atm.implements(test_aspect)
+    assert not atm.implements(second_aspect)
 
 
 def test_component_check(test_component, second_component):
 
-    atom = Atom(test_component(value=1))
+    atm = Atom(test_component(value=1))
 
-    assert atom.has(test_component)
-    assert not atom.has(second_component)
+    assert atm.has(test_component)
+    assert not atm.has(second_component)
 
 
 def test_equality(test_component, second_component):
@@ -82,15 +82,15 @@ def test_equality(test_component, second_component):
 
 def test_representation(test_component):
 
-    atom = Atom(test_component(1))
+    atm = Atom(test_component(1))
 
     short = "Atom(value=1)"
-    assert f"{atom:s}" == short
+    assert f"{atm:s}" == short
 
     long = f"Atom(\n"\
     f"\tTestComponent(value=1)\n"\
     f"\t)"
-    assert f"{atom:l}" == long
+    assert f"{atm:l}" == long
 
     # Default representation should be short
-    assert str(atom) == short
+    assert str(atm) == short

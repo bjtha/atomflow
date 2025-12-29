@@ -1,10 +1,10 @@
-from typing import Self
+from typing import Self, Iterable
 
 from atomflow.aspects import Aspect
-from atomflow.components import Component, NameComponent, ResNameComponent
+from atomflow.components import Component
 
 class Atom:
-    def __init__(self, *components):
+    def __init__(self, *components: Component | Iterable[Component]):
         self._by_aspect: dict[Aspect: list[Component]] = {}
         self._by_keyword: dict[str: list[Component]] = {}
         for c in components:
@@ -41,24 +41,20 @@ class Atom:
     def __eq__(self, other: Self):
         return str(self) == str(other)
 
-    def add(self, comp: Component):
+    def __lt__(self, other: Self):
+        return str(self) < str(other)
+
+    def add(self, comp: Component) -> None:
         for asp in comp.aspects:
             self._by_aspect.setdefault(asp, []).append(comp)
         for prop in comp.get_prop_names():
             self._by_keyword.setdefault(prop, []).append(comp)
 
-    def implements(self, asp: Aspect):
+    def implements(self, asp: Aspect) -> bool:
         return asp in self._by_aspect
 
-    def has(self, cmp_type: type[Component]):
+    def has(self, cmp_type: type[Component]) -> bool:
         return any(isinstance(cmps[-1], cmp_type) for cmps in self._by_aspect.values())
 
 if __name__ == '__main__':
-    atom = Atom()
-    name = NameComponent("CA")
-    atom.add(name)
-    print(atom.name)
-
-    resn = ResNameComponent("MET")
-    atom.add(resn)
-    print(atom.resname)
+    pass
