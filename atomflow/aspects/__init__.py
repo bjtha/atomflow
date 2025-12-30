@@ -7,6 +7,7 @@ from atomflow.aspects.aspects import (
     ChargeAspect,
     CoordinatesAspect,
     ElementAspect,
+    EntityAspect,
     IndexAspect,
     InsertionAspect,
     NameAspect,
@@ -15,7 +16,9 @@ from atomflow.aspects.aspects import (
     PolymerAspect,
     PositionAspect,
     RemotenessAspect,
-    ResNameAspect,
     ResIndexAspect,
+    ResNameAspect,
+    ResOLCAspect,
+    ResTLCAspect,
     TemperatureFactorAspect,
 )

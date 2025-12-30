@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from typing import Self
 
 from atomflow.aspects import *
+from atomflow.knowledge import *
 
 
 def aspects(*__aspects: tuple[type[Aspect]] | type[Aspect]):
@@ -54,7 +55,7 @@ class ElementComponent(Component):
 
 
 @aspects(ResNameAspect)
-class ResNameComponent(Component):
+class ResidueComponent(Component):
 
     def __init__(self, resname):
         self._resname = str(resname).strip()
@@ -63,6 +64,85 @@ class ResNameComponent(Component):
     def resname(self) -> str:
         return self._resname
 
+
+@aspects(ResNameAspect, ResOLCAspect, ResTLCAspect, PolymerAspect)
+class AAResidueComponent(Component):
+
+    def __init__(self, res):
+        res = str(res).strip()
+        if olc := AA_RES_TO_SYM.get(res):
+            self._tlc = res
+            self._olc = olc
+        elif tlc := AA_SYM_TO_RES.get(res):
+            self._tlc = tlc
+            self._olc = res
+        else:
+            raise ValueError(f"Unrecognised amino acid residue code '{res}'.")
+
+    @property
+    def res_olc(self) -> str:
+        return self._olc
+
+    @property
+    def res_tlc(self) -> str:
+        return self._tlc
+
+    @property
+    def resname(self) -> str:
+        return self._tlc
+
+    @property
+    def polymer(self) -> str:
+        return "protein"
+
+
+@aspects(ResNameAspect, ResOLCAspect, PolymerAspect)
+class DNAResidueComponent(Component):
+
+    def __init__(self, res):
+        res = str(res).strip()
+        if olc := DNA_RES_TO_SYM.get(res):
+            self._olc = olc
+            self._resname = res
+        elif resname := DNA_SYM_TO_RES.get(res):
+            self._olc = res
+            self._resname = resname
+        else:
+            raise ValueError(f"Unrecognised DNA residue code '{res}'.")
+
+    @property
+    def res_olc(self) -> str:
+        return self._olc
+
+    @property
+    def resname(self) -> str:
+        return self._resname
+
+    @property
+    def polymer(self) -> str:
+        return "dna"
+
+@aspects(ResNameAspect, ResOLCAspect, PolymerAspect)
+class RNAResidueComponent(Component):
+
+    def __init__(self, res):
+        res = str(res).strip()
+        if res in RNA_RES_CODES:
+            self._resname = res
+        else:
+            raise ValueError(f"Unrecognised RNA residue code '{res}'.")
+
+    @property
+    def resname(self) -> str:
+        return self._resname
+
+    @property
+    def res_olc(self) -> str:
+        return self._resname
+
+    @property
+    def polymer(self) -> str:
+        return "rna"
 
 @aspects(ResIndexAspect)
 class ResIndexComponent(Component):
@@ -215,6 +295,17 @@ class PolymerComponent(Component):
     @property
     def polymer(self) -> str:
         return self._polymer
+
+
+@aspects(EntityAspect)
+class EntityComponent(Component):
+
+    def __init__(self, entity):
+        self._entity = str(entity).strip()
+
+    @property
+    def entity(self) -> str:
+        return self._entity
 
 
 if __name__ == '__main__':

@@ -7,7 +7,7 @@ from atomflow.atom import Atom
 from atomflow.components import *
 from atomflow.formats import *
 
-PDB_STRUCTURES_FOLDER = pathlib.Path("tests/data/structures/pdb")
+PDB_STRUCTURES_FOLDER = pathlib.Path("tests/data/pdb")
 PDB_ATOM_SAMPLE = pathlib.Path("tests/data/pdb_atom_sample.txt")
 
 
@@ -30,7 +30,7 @@ def test_atom():
         PolymerComponent("protein"),
         IndexComponent(1),
         NameComponent("N"),
-        ResNameComponent("MET"),
+        AAResidueComponent("MET"),
         ChainComponent("A"),
         ResIndexComponent(1),
         CoordinatesComponent(1, 1, 1),
@@ -44,7 +44,7 @@ def test_pdb_atom_parsing(example_pdb_atom_records):
     """
     Tests that PDB atom/hetatm records can be converted into Atom objects and back again without loss.
 
-    :param example_pdb_atoms:
+    :param example_pdb_atom_records:
     :return:
     """
 
@@ -71,20 +71,30 @@ def test_pdb_atom_parsing(example_pdb_atom_records):
 
 def test_pdb_file_read(test_atom):
 
-    file_atom = PDBFormat.read_file(PDB_STRUCTURES_FOLDER / "simple.pdb")
+    filename = "test.pdb"
+    simple = "ATOM      1  N   MET A   1       1.000   1.000   1.000  1.00 10.00           N  \n"
+
+    with open(filename, "w") as file:
+        file.write(simple)
+
+    file_atom = PDBFormat.read_file(filename)
+    os.remove(filename)
+
     assert file_atom == [test_atom]
 
 
 def test_pdb_file_write(test_atom):
 
-    PDBFormat.to_file([test_atom],"./test.pdb")
-    with open(PDB_STRUCTURES_FOLDER / "simple.pdb") as subject:
-        with open("./test.pdb") as query:
-            sub_text = subject.read().strip()
-            que_text = query.read().strip()
+    filename = "./test.pdb"
+    PDBFormat.to_file([test_atom],filename)
 
-    os.remove("./test.pdb")
-    assert sub_text == que_text
+    simple = "ATOM      1  N   MET A   1       1.000   1.000   1.000  1.00 10.00           N  \n"
+
+    with open(filename) as file:
+        text = file.read()
+    os.remove(filename)
+
+    assert text == simple
 
 
 def test_full_pdb_read_write():

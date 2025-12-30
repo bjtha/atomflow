@@ -7,9 +7,12 @@ import random
 import aiohttp
 from rcsbapi.search import AttributeQuery
 
+
 def download_structures(pdb_ids: Iterable[str],
-                        format_: str,
-                        outfolder: str):
+                        target_fmt: str,
+                        save_fmt: str,
+                        outfolder: str,
+                        base_url: str = f"https://files.rcsb.org/download/"):
 
     """
     Downloads structures with the given accession IDs from the RSCB Protein Data Bank
@@ -17,6 +20,7 @@ def download_structures(pdb_ids: Iterable[str],
     :param pdb_ids: Iterable of four-digit alphanumeric IDs
     :param format_: File format to download, e.g. "pdb"
     :param outfolder: folder to save downloaded structures. Will be created if it doesn't exist
+    :param base_url: url to download from
     :return: two lists: successfully downloaded structures IDs, and tuples of (ID, error message)
     """
 
@@ -27,17 +31,17 @@ def download_structures(pdb_ids: Iterable[str],
     structures = []
     errors = []
 
-    asyncio.run(get_structures_from_pdb(pdb_ids, format_, outfolder, structures, errors))
+    asyncio.run(get_structures_from_pdb(base_url, pdb_ids, target_fmt, save_fmt, outfolder, structures, errors))
 
     return structures, errors
 
-async def get_structures_from_pdb(pdb_ids, format_, outfolder, structures, errors):
+async def get_structures_from_pdb(base_url, pdb_ids, target_fmt, save_fmt, outfolder, structures, errors):
 
     queue = asyncio.Queue()
 
-    async with aiohttp.ClientSession(base_url=f"https://files.rcsb.org/download/") as session:
-        download_tasks = [asyncio.create_task(get_structure(session, id_, format_, queue)) for id_ in pdb_ids]
-        save_task = asyncio.create_task(save_structure(queue, format_, outfolder, structures, errors))
+    async with aiohttp.ClientSession(base_url) as session:
+        download_tasks = [asyncio.create_task(get_structure(session, id_, target_fmt, queue)) for id_ in pdb_ids]
+        save_task = asyncio.create_task(save_structure(queue, save_fmt, outfolder, structures, errors))
 
         await asyncio.gather(*download_tasks)
         await queue.put((None,''))
@@ -46,24 +50,24 @@ async def get_structures_from_pdb(pdb_ids, format_, outfolder, structures, error
 
 
 async def get_structure(session: aiohttp.ClientSession,
-                        pdb_id: str,
-                        format_: str,
+                        id_: str,
+                        target_fmt,
                         queue: asyncio.Queue):
 
     await asyncio.sleep(0.01)
 
-    async with session.get(f"{pdb_id}.{format_}") as response:
+    async with session.get(target_fmt.format(id_)) as response:
         try:
             response.raise_for_status()
             struct = await response.text()
-            result = ("Ok", (pdb_id, struct))
+            result = ("Ok", (id_, struct))
         except aiohttp.ClientResponseError as e:
-            result = ("Err", (pdb_id, str(e)))
+            result = ("Err", (id_, str(e)))
 
     await queue.put(result)
 
 
-async def save_structure(queue, format_, outfolder, structures, errors):
+async def save_structure(queue, save_fmt, outfolder, structures, errors):
 
     while True:
         res, data = await queue.get()
@@ -74,7 +78,7 @@ async def save_structure(queue, format_, outfolder, structures, errors):
             errors.append(data)
         else:
             name, body = data
-            with open(outfolder / f"{name}.{format_}", "w") as file:
+            with open(outfolder / save_fmt.format(name), "w") as file:
                 file.write(body)
             structures.append(name)
         queue.task_done()
@@ -123,7 +127,17 @@ def pdb_atom_sample(pdb_structures_path, outpath="tests/data/pdb_atom_sample.txt
 
 if __name__ == '__main__':
 
-    pdb_files = [filename.strip(".pdb") for filename in os.listdir("data/structures/pdb")]
+    pdb_files = [filename.strip(".pdb") for filename in os.listdir("data/pdb")]
     pdb_files.pop()
 
-    download_structures(pdb_files, "cif", outfolder="data/structures/cif")
+    # pdb_files = ["6LFE"]
+
+    base_url = f"https://www.rcsb.org/fasta/entry/"
+
+    structures, errors = download_structures(pdb_files,
+                                             target_fmt="{}",
+                                             save_fmt="{}.fasta",
+                                             outfolder="./data/fasta/",
+                                             base_url=base_url)
+    print(errors)
+

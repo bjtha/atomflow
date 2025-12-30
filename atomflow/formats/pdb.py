@@ -5,15 +5,7 @@ from atomflow.components import *
 from atomflow.aspects import *
 from atomflow.atom import Atom
 from atomflow.formats import Format
-
-AA_RES_CODES = {
-    "ALA": "A", "CYS": "C", "ASP": "D", "GLU": "E", "PHE": "F",
-    "GLY": "G", "HIS": "H", "ILE": "I", "LYS": "K", "LEU": "L",
-    "MET": "M", "ASN": "N", "PRO": "P", "GLN": "Q", "ARG": "R",
-    "SER": "S", "THR": "T", "VAL": "V", "TRP": "W", "TYR": "Y",
-}
-DNA_RES_CODES = {"DA", "DG", "DT", "DC"}
-RNA_RES_CODES = {"A", "G", "U", "C"}
+from atomflow.knowledge import *
 
 class PDBFormat(Format):
 
@@ -35,12 +27,10 @@ class PDBFormat(Format):
 
         name = line[12:16].strip()
         elem = line[76:78].strip()
-        res_name = line[17:20].strip()
 
         cmps = [
             IndexComponent(line[6:11]),
             NameComponent(name),
-            ResNameComponent(res_name),
             ChainComponent(line[21:22]),
             ResIndexComponent(line[22:26]),
             CoordinatesComponent(line[30:38], line[38:46], line[46:54]),
@@ -51,13 +41,17 @@ class PDBFormat(Format):
         if position := name[len(elem):]:
             cmps.append(PositionComponent(position))
 
-        # Determine polymer membership from residue name
-        if res_name in AA_RES_CODES:
-            cmps.append(PolymerComponent("protein"))
-        elif res_name in DNA_RES_CODES:
-            cmps.append(PolymerComponent("dna"))
+        # Determine polymer type from residue name, and give appropriate residue component
+        res_name = line[17:20].strip()
+
+        if res_name in AA_RES_TO_SYM:
+            cmps.append(AAResidueComponent(res_name))
+        elif res_name in DNA_RES_TO_SYM:
+            cmps.append(DNAResidueComponent(res_name))
         elif res_name in RNA_RES_CODES:
-            cmps.append(PolymerComponent("rna"))
+            cmps.append(RNAResidueComponent(res_name))
+        else:
+            cmps.append(ResidueComponent(res_name))
 
         # Optional fields
         if altloc := line[16:17].strip():
@@ -88,12 +82,15 @@ class PDBFormat(Format):
 
         if atom.name == "UNK":
             name_field = " UNK"
+
         # If the atom has the aspects needed to make a name field (element & position), build it
         elif all(atom.implements(a) for a in (ElementAspect, PositionAspect)):
             name_field = f"{atom.element: >2}{atom.position: <2}"
+
             # Hydrogen positions sometimes spill over on the right - remove leading space to correct
             if len(name_field) > 4:
                 name_field = name_field.strip()
+
         else:
             name_field = f"{atom.element: >2}  "
 

@@ -1,7 +1,11 @@
 from atomflow.formats.format import (
-    Format
+    Format,
 )
 
 from atomflow.formats.pdb import (
-    PDBFormat
+    PDBFormat,
+)
+
+from atomflow.formats.fasta import (
+    FastaFormat
 )

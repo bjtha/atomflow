@@ -4,6 +4,7 @@ import os
 
 from atomflow.atom import Atom
 
+
 class Format(ABC):
 
     @classmethod

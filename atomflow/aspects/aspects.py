@@ -26,6 +26,20 @@ class ResNameAspect(Aspect, Protocol):
 
 
 @runtime_checkable
+class ResOLCAspect(Aspect, Protocol):
+
+    @property
+    def res_olc(self) -> str: pass
+
+
+@runtime_checkable
+class ResTLCAspect(Aspect, Protocol):
+
+    @property
+    def res_tlc(self) -> str: pass
+
+
+@runtime_checkable
 class ResIndexAspect(Aspect, Protocol):
 
     @property
@@ -134,3 +148,10 @@ class PositionAspect(Aspect, Protocol):
 
     @property
     def position(self) -> str: pass
+
+
+@runtime_checkable
+class EntityAspect(Aspect, Protocol):
+
+    @property
+    def entity(self) -> str: pass
