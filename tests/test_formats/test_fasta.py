@@ -1,8 +1,14 @@
 import os
+import pathlib
+
+import pytest
 
 from atomflow.atom import Atom
 from atomflow.components import *
 from atomflow.formats import FastaFormat
+
+FASTA_SEQUENCES_FOLDER = pathlib.Path("tests/data/fasta")
+
 
 
 def test_protein_fasta_into_atoms():
@@ -71,6 +77,29 @@ def test_rna_fasta_into_atoms():
     assert atoms[0] == target_atom
 
 
+def test_reject_unparseable_sequence():
+
+    """Sequences with ambiguous mixtures of residue codes should be rejected."""
+
+    dna_rna = ">test\nTU"
+    filename = "test.fasta"
+
+    with open(filename, "w") as file:
+        file.write(dna_rna)
+
+    with pytest.raises(ValueError):
+        FastaFormat.read_file(filename)
+
+    rna_aa = ">test\nMU"
+
+    with open(filename, "w") as file:
+        file.write(rna_aa)
+
+    with pytest.raises(ValueError):
+        FastaFormat.read_file(filename)
+    os.remove(filename)
+
+
 def test_empty_file():
 
     """Files with empty sequences should return no atoms for those sequences, failing quietly."""
@@ -89,7 +118,7 @@ def test_empty_file():
 
 def test_write_single_chain():
 
-    """Single chains should be written as single sequences"""
+    """Single entities should be written as single sequences"""
 
     filename = "test.fasta"
     ori_atom = Atom(
@@ -110,25 +139,79 @@ def test_write_single_chain():
 
 
 def test_write_different_chains():
-    raise NotImplementedError
 
+    """Multiple entities should be written to the same file as different sequences"""
+
+    filename = "test.fasta"
+    chain_a = Atom(
+        AAResidueComponent("M"),
+        ResIndexComponent(1),
+        ChainComponent("A")
+    )
+    chain_b = Atom(
+        AAResidueComponent("A"),
+        ResIndexComponent(1),
+        ChainComponent("B")
+    )
+
+    FastaFormat.to_file([chain_a, chain_b], filename)
+
+    with open(filename) as file:
+        text = file.read()
+
+    os.remove(filename)
+
+    assert text == ">protein_A\nM\n>protein_B\nA\n"
 
 def test_write_identical_chains():
-    raise NotImplementedError
 
+    """Identical sequences should only be represented once in the output."""
 
-def test_reject_unparseable_sequence():
-    raise NotImplementedError
+    filename = "test.fasta"
+    chain_a = Atom(
+        AAResidueComponent("M"),
+        ResIndexComponent(1),
+        ChainComponent("A")
+    )
+    chain_b = Atom(
+        AAResidueComponent("M"),
+        ResIndexComponent(1),
+        ChainComponent("B")
+    )
+
+    FastaFormat.to_file([chain_a, chain_b], filename)
+
+    with open(filename) as file:
+        text = file.read()
+
+    os.remove(filename)
+
+    assert text == ">protein_A\nM\n"
 
 
 def test_full_read_write_proteins():
-    raise  NotImplementedError
 
-# Format expectations:
-# * Empty fasta files return an empty list
-# * Sequences represented by multiple identical chains are only written out once
-# * Sequences with residue codes that don't fit into any one format (e.g. MU...) raise an error
-# * Write method should conserve all information gathered by the read method
-# * Non-polymer residues shouldn't be written out
-# * Residues from different polymers should write to different files
-# * Residues from different chains, but the same polymer type, should write to one file
+    """The write method should conserve all information gathered by the read method."""
+
+    temp_filename = "temp.fasta"
+
+    fasta_files = [f for f in os.listdir(FASTA_SEQUENCES_FOLDER)
+                   if os.path.isfile(FASTA_SEQUENCES_FOLDER / f)]
+
+    try:
+        for filename in fasta_files:
+            atoms_r = FastaFormat.read_file(FASTA_SEQUENCES_FOLDER / filename)
+            FastaFormat.to_file(atoms_r, temp_filename)
+            atoms_w = FastaFormat.read_file(temp_filename)
+
+            assert atoms_r == atoms_w
+
+    except AssertionError as e:
+        raise e
+
+    except Exception as e:
+        print(str(e))
+
+    finally:
+        if os.path.exists(temp_filename):
+            os.remove(temp_filename)

@@ -4,7 +4,7 @@ from operator import itemgetter
 from typing import Iterable
 
 from atomflow.atom import Atom
-from atomflow.formats import Format
+from atomflow.formats import Format, PDBFormat
 from atomflow.aspects import (ResOLCAspect,
                               ResIndexAspect,
                               ChainAspect,
@@ -23,7 +23,6 @@ class FastaFormat(Format):
     recipe = {
         ResOLCAspect,
         ResIndexAspect,
-        ChainAspect,
         PolymerAspect
     }
 
@@ -61,15 +60,17 @@ class FastaFormat(Format):
                     raise ValueError(f"Could not determine polymer type of sequence:\n{seq[:20]}...")
 
                 # Convert sequence into a list of atoms
+                new_atms = []
                 for i, res in enumerate(seq):
                     resn = cmp_type(res)
                     resi = ResIndexComponent(i+1)
-                    atoms.append(Atom(resn, resi, ent))
+                    new_atms.append(Atom(resn, resi, ent))
+                atoms = new_atms + atoms
 
                 seq_lines = []
 
             else:
-                seq_lines.append(ln)
+                seq_lines.insert(0, ln)
 
         return atoms
 
@@ -80,9 +81,13 @@ class FastaFormat(Format):
 
         # Collect unique (index, res_code) pairs by entity
         for atom in atoms:
+
+            # Skip atoms without needed information, or for which an entity isn't present or make-able.
             missing = [asp for asp in cls.recipe if not atom.implements(asp)]
             if missing:
-                print(f"{missing = }")
+                continue
+            if not ((atom.implements(PolymerAspect) and atom.implements(ChainAspect))
+                    or atom.implements(EntityAspect)):
                 continue
 
             # Get or compose entity name
@@ -96,20 +101,15 @@ class FastaFormat(Format):
         # Assemble residue codes into sequences, and collect unique sequences by entity
         seqs = {}
         for ent, residues in residue_sets.items():
-            seq = "".join([r for _, r in sorted(residues, key=itemgetter(1))])
+            seq = "".join([r for _, r in sorted(residues, key=itemgetter(0))])
             if seq in seqs:
                 continue
             seqs[seq] = ent
 
-        print(f"{residue_sets = }")
-
-        with open(path, "a") as file:
-            for seq, ent in seqs.items():
-                file.write(f">{ent}\n{seq}\n")
-
+        # Write out all sequences to one file
+        with open(path, "w") as file:
+            file.writelines([f">{ent}\n{seq}\n" for seq, ent in seqs.items()])
 
 
 if __name__ == '__main__':
-     atms = FastaFormat.read_file("../../tests/data/fasta/1A2V.fasta")
-     for a in atms:
-         print(a)
+    pass

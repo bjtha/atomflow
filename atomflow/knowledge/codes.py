@@ -3,6 +3,7 @@ AA_RES_TO_SYM = {
     "GLY": "G", "HIS": "H", "ILE": "I", "LYS": "K", "LEU": "L",
     "MET": "M", "ASN": "N", "PRO": "P", "GLN": "Q", "ARG": "R",
     "SER": "S", "THR": "T", "VAL": "V", "TRP": "W", "TYR": "Y",
+    "UNK": "X"
 }
 
 AA_SYM_TO_RES = {v: k for k, v in AA_RES_TO_SYM.items()}

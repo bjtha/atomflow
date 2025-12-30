@@ -99,22 +99,21 @@ def test_pdb_file_write(test_atom):
 
 def test_full_pdb_read_write():
 
-    """
-    Tests, for all structures in the dataset, that the atom representation built from
-    the original file is the same as that built from the file written from atomflow. I.e.,
-    tests for internal consistency between read and write, but does not guarantee that no information
-    is lost in the original file reading.
-
-    :return:
-    """
+    """The write method should conserve all information gathered by the read method."""
 
     pdb_files = [f for f in os.listdir(PDB_STRUCTURES_FOLDER)
                  if os.path.isfile(PDB_STRUCTURES_FOLDER / f)]
 
-    for filename in pdb_files:
-        atoms_original = PDBFormat.read_file(PDB_STRUCTURES_FOLDER / filename)
-        PDBFormat.to_file(atoms_original, "./temp.pdb")
-        atoms_new = PDBFormat.read_file("./temp.pdb")
-        os.remove("./temp.pdb")
+    try:
+        for filename in pdb_files:
+            atoms_original = PDBFormat.read_file(PDB_STRUCTURES_FOLDER / filename)
+            PDBFormat.to_file(atoms_original, "./temp.pdb")
+            atoms_new = PDBFormat.read_file("./temp.pdb")
 
-        assert atoms_original == atoms_new
+            assert atoms_original == atoms_new
+
+    except Exception as e:
+        raise e
+
+    finally:
+        os.remove("./temp.pdb")
