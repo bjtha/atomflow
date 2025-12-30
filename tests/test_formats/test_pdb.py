@@ -41,32 +41,28 @@ def test_atom():
 
 def test_pdb_atom_parsing(example_pdb_atom_records):
 
-    """
-    Tests that PDB atom/hetatm records can be converted into Atom objects and back again without loss.
+    """PDB ATOM and HETATM records should convert into Atom objects and back again without loss."""
 
-    :param example_pdb_atom_records:
-    :return:
-    """
+    source, record, line_w, atom = (None,)*4
 
-    atom_records = example_pdb_atom_records
+    try:
+        for record, source in example_pdb_atom_records:
+            atom = PDBFormat.atom_from_line(record)
+            line_w = PDBFormat.line_from_atom(atom)
 
-    mismatches = []
+            assert line_w == record
 
-    for record, source in atom_records:
-        atom = PDBFormat.atom_from_line(record)
-        reconstituted = PDBFormat.line_from_atom(atom)
+    except AssertionError as e:
 
-        if reconstituted != record:
-            mismatches.append((source, record, atom, reconstituted))
-
-    if len(mismatches) > 0:
-        mm = mismatches[0]
-        source, original, atom, recon = mm
-        print(f"{source: <12}{original}")
-        print(f"{"recon": <12}{recon}")
+        # Print vertically aligned to make differences clearer
+        print(f"{source: <12}{record}")
+        print(f"{"recon": <12}{line_w}")
         print(f"Atom representation: {atom}")
 
-        raise Exception(f"{len(mismatches)} mismatches:")
+        raise e
+
+    except Exception as e:
+        raise e
 
 
 def test_pdb_file_read(test_atom):
@@ -99,7 +95,11 @@ def test_pdb_file_write(test_atom):
 
 def test_full_pdb_read_write():
 
-    """The write method should conserve all information gathered by the read method."""
+    """
+    The write method should conserve all information gathered by the read method.
+
+    NB: takes a while
+    """
 
     pdb_files = [f for f in os.listdir(PDB_STRUCTURES_FOLDER)
                  if os.path.isfile(PDB_STRUCTURES_FOLDER / f)]
@@ -112,8 +112,11 @@ def test_full_pdb_read_write():
 
             assert atoms_original == atoms_new
 
-    except Exception as e:
+    except AssertionError as e:
         raise e
+
+    except Exception as e:
+        print(str(e))
 
     finally:
         os.remove("./temp.pdb")
