@@ -2,7 +2,35 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Aspect:
+
+    """
+    Aspect objects represent shared labels for data items associated with an atom.
+
+    Instances equal the strings they contain for convenience with lookup.
+    >>> asp = Aspect("index")
+    >>> assert asp == "index"
+    >>> mapping = {"index": 1}
+    >>> assert mapping[asp] == 1
+    """
+
     name: str
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.name == other
+        else:
+            return self == other
+
+    def __lt__(self, other):
+        if isinstance(other, Aspect):
+            return self.name < other.name
+        elif isinstance(other, str):
+            return self.name < other
+        else:
+            return self < other
 
 # Atom
 AltLocAspect = Aspect("altloc")  # Identifier for one of multiple alternative locations

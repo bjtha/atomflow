@@ -5,6 +5,14 @@ from atomflow.aspects import *
 from atomflow.knowledge import *
 
 def aspects(*asp: Aspect | tuple[Aspect]):
+
+    """
+    Verify that a component implements aspects, then attach them to it.
+
+    :param asp:
+    :return:
+    """
+
     def deco(cls: Component):
         props = cls.get_property_names()
         if missing := [a.name for a in asp if a.name not in props]:
@@ -15,6 +23,14 @@ def aspects(*asp: Aspect | tuple[Aspect]):
 
 
 def cache_instances(cls):
+
+    """
+    Store unique instances of the class in a cache. If the same arguments are passed to
+    the constructor again, return the stored instance.
+
+    :param cls:
+    :return:
+    """
 
     cache = WeakValueDictionary()
     ori_new = cls.__new__
@@ -34,6 +50,11 @@ def cache_instances(cls):
 
 
 class Component:
+
+    """
+    Holds data relating to atoms. Defined by the aspects it explicitly implements.
+    """
+
     aspects = ()
 
     def __repr__(self):
