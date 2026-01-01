@@ -4,7 +4,7 @@ from operator import itemgetter
 from typing import Iterable
 
 from atomflow.atom import Atom
-from atomflow.formats import Format, PDBFormat
+from atomflow.formats import Format
 from atomflow.aspects import (ResOLCAspect,
                               ResIndexAspect,
                               ChainAspect,

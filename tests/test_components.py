@@ -1,9 +1,14 @@
 import pytest
-from typing import Protocol, runtime_checkable
 
-from atomflow.aspects import *
 from atomflow.components import *
-from tests.test_aspects import test_aspect, second_aspect
+
+@pytest.fixture
+def test_aspect():
+    return Aspect("value")
+
+@pytest.fixture
+def second_aspect():
+    return Aspect("item")
 
 
 @pytest.fixture
@@ -54,13 +59,12 @@ def second_component(second_aspect):
     return SecondComponent
 
 
-
 def test_aspect_verification(naked_component, test_aspect, second_aspect):
 
     # Shouldn't raise exception
     aspects(test_aspect)(naked_component)
 
-    # bad_aspect has one property, '_', which NakedComponent doesn't implement
+    # Naked component doesn't implement 'item' from SecondAspect
     with pytest.raises(Exception):
         aspects(second_aspect)(naked_component)
 
@@ -68,7 +72,7 @@ def test_aspect_verification(naked_component, test_aspect, second_aspect):
 def test_prop_name_capture(test_component):
 
     cmp = test_component("foo")
-    assert cmp.get_prop_names() == ["value"]
+    assert cmp.get_property_names() == ["value"]
 
 
 def test_component_equality(test_component):
@@ -77,5 +81,21 @@ def test_component_equality(test_component):
     cmp2 = test_component("foo")
     cmp3 = test_component("bar")
 
-    # Components should be defined by their values
+    # Components with the same value should be equal
     assert cmp1 == cmp2 != cmp3
+
+
+def test_instance_caching(test_component):
+
+    cmp1 = test_component("foo")
+    cmp2 = test_component("foo")
+
+    assert cmp1 is not cmp2
+
+    cached_component = cache_instances(test_component)
+
+    # When caching is applied, instances with the same value should be the same object
+    c_cmp1 = cached_component("foo")
+    c_cmp2 = cached_component("foo")
+
+    assert c_cmp1 is c_cmp2

@@ -15,7 +15,9 @@ class PDBFormat(Format):
         ResNameAspect,
         ChainAspect,
         ResIndexAspect,
-        CoordinatesAspect,
+        CoordXAspect,
+        CoordYAspect,
+        CoordZAspect,
     }
 
     @staticmethod
@@ -33,7 +35,9 @@ class PDBFormat(Format):
             NameComponent(name),
             ChainComponent(line[21:22]),
             ResIndexComponent(line[22:26]),
-            CoordinatesComponent(line[30:38], line[38:46], line[46:54]),
+            CoordXComponent(line[30:38]),
+            CoordYComponent(line[38:46]),
+            CoordZComponent(line[46:54]),
             ElementComponent(elem),
         ]
 
@@ -67,7 +71,7 @@ class PDBFormat(Format):
             cmps.append(TemperatureFactorComponent(b_factor))
 
         if charge := line[78:80].strip():
-            cmps.append(ChargeComponent(charge))
+            cmps.append(FormalChargeComponent(charge))
 
         return Atom(*cmps)
 
@@ -97,8 +101,8 @@ class PDBFormat(Format):
         altloc = atom.altloc if atom.implements(AltLocAspect) else ''
         ins = atom.insertion if atom.implements(InsertionAspect) else ''
         occ = atom.occupancy if atom.implements(OccupancyAspect) else ''
-        b = atom.temp if atom.implements(TemperatureFactorAspect) else ''
-        charge = atom.charge if atom.implements(ChargeAspect) else ''
+        b = atom.temp_f if atom.implements(TemperatureFactorAspect) else ''
+        charge = atom.fcharge if atom.implements(FormalChargeAspect) else ''
         _ = ' '
 
         return \

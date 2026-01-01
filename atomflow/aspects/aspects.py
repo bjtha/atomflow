@@ -1,157 +1,32 @@
-from typing import Protocol, runtime_checkable
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Aspect:
+    name: str
+
+# Atom
+AltLocAspect = Aspect("altloc")  # Identifier for one of multiple alternative locations
+CoordXAspect = Aspect("x")  # Atom's x-coordinate
+CoordYAspect = Aspect("y")  # Atom's y-coordinate
+CoordZAspect = Aspect("z")  # Atom's z-coordinate
+ElementAspect = Aspect("element")  # Element of the atom
+IndexAspect = Aspect("index")  # Ordinal index of the atom in its molecule
+InsertionAspect = Aspect("insertion")  # Identifier for insertion of the atom into the index
+NameAspect = Aspect("name")  # Name of the atom
+OccupancyAspect = Aspect("occupancy")  # Fractional occupancy of the atom in this alt. loc.
+PositionAspect = Aspect("position")  # Position of the atom in the molecule or relative to the backbone
+TemperatureFactorAspect = Aspect("temp_f") # Atom's isotropic temperature factor
+FormalChargeAspect = Aspect("fcharge")  # Atom's formal charge, e.g. -1, 0, +1
+
+# Residue
+ResNameAspect = Aspect("resname")  # Name of the residue the atom is part of
+ResOLCAspect = Aspect("res_olc")  # One-letter code for the residue the atom is a part of
+ResTLCAspect = Aspect("res_tlc")  # Three-letter code for the residue the atom is a part of
+ResIndexAspect = Aspect("resindex")  # Ordinal index of the atom's residue in its polymer
+
+# Molecule
+ChainAspect = Aspect("chain")  # Chain the atom is part of or associated with
+EntityAspect = Aspect("entity")  # Entity, i.e. distinct chemical species, the atom is a part of
+PolymerAspect = Aspect("polymer")  # Polymer type the atom is part of
 
-@runtime_checkable
-class Aspect(Protocol): pass
 
-
-@runtime_checkable
-class NameAspect(Aspect, Protocol):
-
-    @property
-    def name(self) -> str: pass
-
-
-@runtime_checkable
-class ElementAspect(Aspect, Protocol):
-
-    @property
-    def element(self) -> str: pass
-
-
-@runtime_checkable
-class ResNameAspect(Aspect, Protocol):
-
-    @property
-    def resname(self) -> str: pass
-
-
-@runtime_checkable
-class ResOLCAspect(Aspect, Protocol):
-
-    @property
-    def res_olc(self) -> str: pass
-
-
-@runtime_checkable
-class ResTLCAspect(Aspect, Protocol):
-
-    @property
-    def res_tlc(self) -> str: pass
-
-
-@runtime_checkable
-class ResIndexAspect(Aspect, Protocol):
-
-    @property
-    def resindex(self) -> float: pass
-
-
-@runtime_checkable
-class PolymerAspect(Aspect, Protocol):
-
-    @property
-    def polymer(self) -> str: pass
-
-
-@runtime_checkable
-class IndexAspect(Aspect, Protocol):
-
-    @property
-    def index(self) -> int: pass
-
-
-@runtime_checkable
-class RemotenessAspect(Aspect, Protocol):
-
-    @property
-    def remoteness(self) -> str: pass
-
-
-@runtime_checkable
-class AltLocAspect(Aspect, Protocol):
-
-    @property
-    def altloc(self) -> str: pass
-
-
-@runtime_checkable
-class ChainAspect(Aspect, Protocol):
-
-    @property
-    def chain(self) -> str: pass
-
-
-@runtime_checkable
-class InsertionAspect(Aspect, Protocol):
-
-    @property
-    def insertion(self) -> str: pass
-
-
-@runtime_checkable
-class CoordinatesAspect(Aspect, Protocol):
-
-    @property
-    def x(self) -> float: pass
-
-    @property
-    def y(self) -> float: pass
-
-    @property
-    def z(self) -> float: pass
-
-
-@runtime_checkable
-class OccupancyAspect(Aspect, Protocol):
-
-    @property
-    def occupancy(self) -> float: pass
-
-
-@runtime_checkable
-class TemperatureFactorAspect(Aspect, Protocol):
-
-    @property
-    def temp(self) -> float: pass
-
-
-@runtime_checkable
-class ChargeAspect(Aspect, Protocol):
-
-    @property
-    def charge(self) -> int: pass
-
-
-@runtime_checkable
-class BranchAspect(Aspect, Protocol):
-
-    @property
-    def branch(self) -> str: pass
-
-
-@runtime_checkable
-class BackboneAspect(Aspect, Protocol):
-
-    @property
-    def backbone(self) -> bool: pass
-
-
-@runtime_checkable
-class NameFieldAspect(Aspect, Protocol):
-
-    @property
-    def name_field(self) -> str: pass
-
-
-@runtime_checkable
-class PositionAspect(Aspect, Protocol):
-
-    @property
-    def position(self) -> str: pass
-
-
-@runtime_checkable
-class EntityAspect(Aspect, Protocol):
-
-    @property
-    def entity(self) -> str: pass

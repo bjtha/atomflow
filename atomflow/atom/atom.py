@@ -47,14 +47,11 @@ class Atom:
     def add(self, comp: Component) -> None:
         for asp in comp.aspects:
             self._by_aspect.setdefault(asp, []).append(comp)
-        for prop in comp.get_prop_names():
+        for prop in comp.get_property_names():
             self._by_keyword.setdefault(prop, []).append(comp)
 
     def implements(self, asp: Aspect) -> bool:
         return asp in self._by_aspect
-
-    def has(self, cmp_type: type[Component]) -> bool:
-        return any(isinstance(cmps[-1], cmp_type) for cmps in self._by_aspect.values())
 
 if __name__ == '__main__':
     pass

@@ -1,8 +1,7 @@
 import pytest
 
 from atomflow.atom import *
-from tests.test_aspects import test_aspect, second_aspect
-from tests.test_components import test_component, second_component
+from tests.test_components import test_component, second_component, test_aspect, second_aspect
 
 
 def test_add_component(test_aspect, test_component):
@@ -44,14 +43,6 @@ def test_aspect_check(test_component, test_aspect, second_aspect):
 
     assert atm.implements(test_aspect)
     assert not atm.implements(second_aspect)
-
-
-def test_component_check(test_component, second_component):
-
-    atm = Atom(test_component(value=1))
-
-    assert atm.has(test_component)
-    assert not atm.has(second_component)
 
 
 def test_equality(test_component, second_component):
