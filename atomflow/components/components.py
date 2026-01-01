@@ -43,6 +43,9 @@ class Component:
     def __eq__(self, other):
         return str(self) == str(other)
 
+    def __lt__(self, other):
+        return str(self) < str(other)
+
     @classmethod
     def get_property_names(cls) -> list[str]:
         return [name for name, p in vars(cls).items() if isinstance(p, property)]

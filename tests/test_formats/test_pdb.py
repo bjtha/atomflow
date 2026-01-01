@@ -95,6 +95,25 @@ def test_pdb_file_write(test_atom):
     assert text == simple
 
 
+def test_insufficient_data():
+
+    """If any atoms don't meet the format recipe, the whole write should be rejected."""
+
+    atom = Atom(
+        IndexComponent(1),
+        AAResidueComponent("MET"),
+        ChainComponent("A"),
+        ResIndexComponent(1),
+        # CoordXComponent(1),  Missing X-coordinate
+        CoordZComponent(1),
+        CoordYComponent(1),
+        ElementComponent("N"),
+    )
+
+    with pytest.raises(ValueError):
+        PDBFormat.to_file([atom], "")
+
+
 def test_full_pdb_read_write():
 
     """

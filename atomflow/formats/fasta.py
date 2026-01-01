@@ -21,9 +21,17 @@ from atomflow.knowledge import *
 class FastaFormat(Format):
 
     recipe = {
-        ResOLCAspect,
-        ResIndexAspect,
-        PolymerAspect
+        "and": [
+            ResOLCAspect,
+            ResIndexAspect,
+            {"or": [
+                {"and": [
+                    PolymerAspect,
+                    ChainAspect
+                ]},
+                EntityAspect,
+            ]},
+        ],
     }
 
     @classmethod
@@ -82,12 +90,8 @@ class FastaFormat(Format):
         # Collect unique (index, res_code) pairs by entity
         for atom in atoms:
 
-            # Skip atoms without needed information, or for which an entity isn't present or make-able.
-            missing = [asp for asp in cls.recipe if not atom.implements(asp)]
-            if missing:
-                continue
-            if not ((atom.implements(PolymerAspect) and atom.implements(ChainAspect))
-                    or atom.implements(EntityAspect)):
+            # Skip atoms without needed information
+            if not atom.implements(cls.recipe):
                 continue
 
             # Get or compose entity name

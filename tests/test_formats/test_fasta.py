@@ -116,6 +116,33 @@ def test_empty_file():
 
     assert atoms == []
 
+
+def test_insufficient_data():
+
+    """Atoms which don't meet the recipe should be ignored."""
+
+    filename = "test.fasta"
+
+    atom = Atom(
+        AAResidueComponent("V"),
+        ResIndexComponent(1),
+        EntityComponent("test")
+    )
+    only_polymer = Atom(
+        AAResidueComponent("L"),
+        ResIndexComponent(1),
+    )
+
+    FastaFormat.to_file([atom, only_polymer], filename)
+
+    with open(filename) as file:
+        text = file.read()
+
+    os.remove(filename)
+
+    assert text == ">test\nV\n"
+
+
 def test_write_single_chain():
 
     """Single entities should be written as single sequences"""

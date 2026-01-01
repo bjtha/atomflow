@@ -10,14 +10,16 @@ from atomflow.knowledge import *
 class PDBFormat(Format):
 
     recipe = {
-        IndexAspect,
-        ElementAspect,
-        ResNameAspect,
-        ChainAspect,
-        ResIndexAspect,
-        CoordXAspect,
-        CoordYAspect,
-        CoordZAspect,
+        "and": [
+            IndexAspect,
+            ElementAspect,
+            ResNameAspect,
+            ChainAspect,
+            ResIndexAspect,
+            CoordXAspect,
+            CoordYAspect,
+            CoordZAspect,
+        ]
     }
 
     @staticmethod
@@ -78,9 +80,8 @@ class PDBFormat(Format):
     @classmethod
     def line_from_atom(cls, atom: Atom) -> str:
 
-        missing = [asp for asp in cls.recipe if not atom.implements(asp)]
-        if missing:
-            raise Exception(f"Could not create PDB line from {atom}")
+        if not atom.implements(cls.recipe):
+            raise ValueError(f"{atom} does not implement aspects required for PDB format")
 
         record_type = "ATOM" if atom.implements(PolymerAspect) else "HETATM"
 
@@ -88,7 +89,7 @@ class PDBFormat(Format):
             name_field = " UNK"
 
         # If the atom has the aspects needed to make a name field (element & position), build it
-        elif all(atom.implements(a) for a in (ElementAspect, PositionAspect)):
+        elif atom.implements(PositionAspect):
             name_field = f"{atom.element: >2}{atom.position: <2}"
 
             # Hydrogen positions sometimes spill over on the right - remove leading space to correct
@@ -123,8 +124,8 @@ class PDBFormat(Format):
     @classmethod
     def to_file(cls, atoms: Iterable[Atom], path: str | os.PathLike) -> None:
 
+        text = "\n".join(cls.line_from_atom(a) for a in atoms)
         with open(path, "w") as file:
-            text = "\n".join(cls.line_from_atom(a) for a in atoms)
             file.write(text + "\n")
 
 if __name__ == '__main__':
