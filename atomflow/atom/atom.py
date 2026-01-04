@@ -1,7 +1,8 @@
 from typing import Self, Iterable, Mapping
 
 from atomflow.aspects import Aspect
-from atomflow.components import Component
+from atomflow.components import Component, NameComponent
+
 
 class Atom:
 
@@ -27,6 +28,10 @@ class Atom:
     Traceback (most recent call last):
         ...
     AttributeError: Atom has no data for 'tree'
+
+    The .get() method, however, returns None if the aspect keyword isn't in the dictionary.
+    >>> assert atom.get("name") == "CA"
+    >>> assert atom.get("tree") is None
 
     New components overwrite others with the same aspects
     >>> assert atom.name == "CA"
@@ -119,6 +124,12 @@ class Atom:
             return False
 
         return True
+
+    def get(self, asp: str | Aspect):
+        try:
+            return self.__getattr__(asp)
+        except AttributeError:
+            return None
 
 if __name__ == '__main__':
     pass

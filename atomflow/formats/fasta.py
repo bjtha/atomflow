@@ -34,6 +34,8 @@ class FastaFormat(Format):
         ],
     }
 
+    extensions = (".fasta", ".faa", ".fna")
+
     @classmethod
     def read_file(cls, path: str | os.PathLike) -> list[Atom]:
 

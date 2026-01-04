@@ -22,6 +22,8 @@ class PDBFormat(Format):
         ]
     }
 
+    extensions = (".pdb",)
+
     @staticmethod
     def atom_from_line(line: str) -> Atom | None:
 
@@ -85,7 +87,7 @@ class PDBFormat(Format):
 
         record_type = "ATOM" if atom.implements(PolymerAspect) else "HETATM"
 
-        if atom.name == "UNK":
+        if atom.implements("name") and atom.name == "UNK":
             name_field = " UNK"
 
         # If the atom has the aspects needed to make a name field (element & position), build it
@@ -101,8 +103,8 @@ class PDBFormat(Format):
 
         altloc = atom.altloc if atom.implements(AltLocAspect) else ''
         ins = atom.insertion if atom.implements(InsertionAspect) else ''
-        occ = atom.occupancy if atom.implements(OccupancyAspect) else ''
-        b = atom.temp_f if atom.implements(TemperatureFactorAspect) else ''
+        occ = atom.occupancy if atom.implements(OccupancyAspect) else 1
+        b = atom.temp_f if atom.implements(TemperatureFactorAspect) else 0
         charge = atom.fcharge if atom.implements(FormalChargeAspect) else ''
         _ = ' '
 

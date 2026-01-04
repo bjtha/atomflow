@@ -1,8 +1,14 @@
+from __future__ import annotations
+
+import os
 from collections import deque
 from collections.abc import Iterable
+import pathlib
 
 from atomflow.atom import Atom
-from atomflow.components import NameComponent, ResidueComponent
+from atomflow.components import NameComponent, ResidueComponent, IndexComponent
+from atomflow.formats import Format
+
 
 END = object()
 
@@ -10,7 +16,7 @@ END = object()
 class AtomIterator:
 
     """
-    Base iterator. Converts a list of Atoms into an iterator where each atom is in its own group.
+    Base iterator. Converts a list of Atoms into an iterator of (Atom,).
 
     >>> from atomflow.atom import Atom
     >>> from atomflow.components import NameComponent, ResidueComponent, IndexComponent
@@ -18,45 +24,82 @@ class AtomIterator:
     >>> atom_a = Atom(NameComponent("A"), ResidueComponent("X"), IndexComponent(3))
     >>> atom_b = Atom(NameComponent("B"), ResidueComponent("X"), IndexComponent(1))
     >>> atom_c = Atom(NameComponent("C"), ResidueComponent("Y"), IndexComponent(2))
-    >>> a_iter = AtomIterator([atom_a, atom_b, atom_c])
+    >>> a_iter = AtomIterator.from_list([atom_a, atom_b, atom_c])
     >>> assert list(a_iter) == [(atom_a,), (atom_b,), (atom_c,)]
 
+    AtomIterator.collect() brings all atoms into a single group.
+    >>> a_iter = AtomIterator.from_list([atom_a, atom_b, atom_c]).collect()
+    >>> assert list(a_iter) == [(atom_a, atom_b, atom_c)]
+
+    While .to_list() flattens the groups.
+    >>> a_iter = AtomIterator.from_list([atom_a, atom_b, atom_c]).to_list()
+    >>> assert list(a_iter) == [atom_a, atom_b, atom_c]
+
     Subclasses are iterators that can be passed between each other via functions inherited from
-    this class. 'collect' flattens grouping back into a list of atoms.
-    >>> a_iter = AtomIterator([atom_a, atom_b, atom_c])
-    >>> a_list = a_iter.group_by("resname").filter("name", none_of=["B"]).collect()
+    this class.
+    >>> a_iter = AtomIterator.from_list([atom_a, atom_b, atom_c])
+    >>> a_list = a_iter.group_by("resname")._filter("name", none_of=["B"]).to_list()
     >>> assert a_list == [atom_c]
 
-    Sort atoms based on a given key property.
-    >>> a_iter = AtomIterator([atom_a, atom_b, atom_c])
-    >>> a_list = a_iter.sort("index").group_by("resname").collect()
+    Sort atoms based on a given key aspect.
+    >>> a_iter = AtomIterator.from_list([atom_a, atom_b, atom_c])
+    >>> a_list = a_iter.sort("index").to_list()
     >>> assert a_list == [atom_b, atom_c, atom_a]
     """
 
-    def __init__(self, atoms: Iterable[Atom] = None):
-        if atoms:
-            self._atom_groups = iter(atoms)
+    def __init__(self, atom_groups: Iterable[Iterable[Atom]]):
+        self._atom_groups = iter(atom_groups)
 
     def __next__(self):
-        return (next(self._atom_groups),)
+        return next(self._atom_groups)
 
     def __iter__(self):
         return self
 
-    def group_by(self, key: str):
+    def group_by(self, key: str | None = None):
         return GroupIterator(self, key)
 
-    def filter(self, key:str, any_of: None | Iterable = None, none_of: None | Iterable = None):
+    def filter(self, key: str, any_of: None | Iterable = None, none_of: None | Iterable = None) -> AtomIterator:
         return FilterIterator(self, key, any_of, none_of)
 
-    def collect(self) -> list[Atom]:
-        return [atm for grp in self for atm in grp]
+    @classmethod
+    def from_list(cls, atoms: Iterable[Atom]) -> AtomIterator:
+        return GroupIterator([atoms])
+
+    def collect(self) -> AtomIterator:
+        return AtomIterator([tuple(self.to_list())])
 
     def sort(self, key: str):
-        return AtomIterator(sorted(self.collect(), key=lambda a: a[key]))
+        return AtomIterator([sorted(self.to_list(), key=lambda a: a[key])])
 
-    def write(self, path: str):
-        pass
+    def to_list(self) -> list[Atom]:
+        return [atm for grp in self for atm in grp]
+
+    def write(self, path: str | os.PathLike) -> str | list[str]:
+
+        outpaths = []
+
+        # Retrieve the correct format
+        path = pathlib.Path(path)
+        ext = path.suffix
+        writer = Format.get_format(ext)
+
+        # Write each group as it arrives
+        for i, group in enumerate(self):
+            stem = path.stem if i == 0 else f"{path.stem}_{i}"
+            outpath = path.parent / f"{stem}{ext}"
+            writer.to_file(group, outpath)
+            outpaths.append(outpath)
+
+        # Return the written filepaths
+        match len(outpaths):
+            case 0:
+                raise ValueError("No atoms written")
+            case 1:
+                return str(outpaths[0])
+            case _:
+                return [str(o) for o in outpaths]
+
 
 class GroupIterator(AtomIterator):
 
@@ -75,13 +118,16 @@ class GroupIterator(AtomIterator):
     Only collects sequential similar atoms.
     >>> g_iter = GroupIterator([(atom_a, atom_b, atom_c)], group_by="resname")
     >>> assert list(g_iter) == [(atom_a,), (atom_b,), (atom_c,)]
+
+    If no grouping value is given, each atom is grouped separately
+    >>> g_iter = GroupIterator([(atom_a, atom_b, atom_c)])
+    >>> assert list(g_iter) == [(atom_a,), (atom_b,), (atom_c,)]
     """
 
-    def __init__(self, atom_groups, group_by):
+    def __init__(self, atom_groups, group_by=None):
 
-        super().__init__()
+        super().__init__(atom_groups)
 
-        self._atom_groups = iter(atom_groups)
         self._group_by = group_by
 
         self._last_value = None
@@ -110,11 +156,13 @@ class GroupIterator(AtomIterator):
                     self._source_state = END
                     return tuple(self._buffer)
 
-            # Get the next atom and its grouping value
+            # Get the next atom and its grouping value. If no grouping key was given, use
+            # object id as the value so that each atom gets grouped separately.
             atom = self._queue.popleft()
-            value = atom[self._group_by]
+            value = atom[self._group_by] if self._group_by is not None else id(atom)
 
-            # If the atom is the first, or it has the same grouping value as the previous, add it to the buffer
+            # If the atom is the first, or it has the same grouping value as the previous, add
+            # it to the buffer
             if self._last_value in (None, value):
                 self._buffer.append(atom)
                 self._last_value = value
@@ -130,7 +178,7 @@ class GroupIterator(AtomIterator):
 class FilterIterator(AtomIterator):
 
     """
-    Filters Atoms based on either allowed or disallowed values of the given aspect (key).
+    Filters Atoms based on either allowed or disallowed values of an aspect.
 
     >>> from atomflow.atom import Atom
 
@@ -155,23 +203,29 @@ class FilterIterator(AtomIterator):
     def __init__(self, atom_groups, key,
                  any_of: None | Iterable = None, none_of: None | Iterable = None):
 
-        super().__init__()
+        super().__init__(atom_groups)
 
-        self._atom_groups = iter(atom_groups)
         self.key = key
 
         if any_of is None:
-            self.filter = lambda group: not any(atom[key] in none_of for atom in group)
+            self._filter = lambda group: not any(atom[key] in none_of for atom in group)
         elif none_of is None:
-            self.filter = lambda group: any(atom[key] in any_of for atom in group)
+            self._filter = lambda group: any(atom[key] in any_of for atom in group)
         else:
             raise ValueError("One of 'any_of' or 'none_of' must be provided")
 
     def __next__(self):
         while True:
             group = next(self._atom_groups)
-            if self.filter(group):
+            if self._filter(group):
                 return group
+
+
+def read(path: str | os.PathLike) -> AtomIterator:
+    path = pathlib.Path(path)
+    reader = Format.get_format(path.suffix)
+    atoms = reader.read_file(path)
+    return AtomIterator.from_list(atoms)
 
 
 if __name__ == '__main__':
