@@ -38,7 +38,7 @@ class AtomIterator:
     Subclasses are iterators that can be passed between each other via functions inherited from
     this class.
     >>> a_iter = AtomIterator.from_list([atom_a, atom_b, atom_c])
-    >>> a_list = a_iter.group_by("resname")._filter("name", none_of=["B"]).to_list()
+    >>> a_list = a_iter.group_by("resname").filter("name", none_of=["B"]).to_list()
     >>> assert a_list == [atom_c]
 
     Sort atoms based on a given key aspect.
