@@ -1,5 +1,11 @@
 ## Atomflow
 
+### Installation
+
+```commandline
+pip install atomflow
+```
+
 ### Overview
 
 Atomflow is a library for manipulating protein sequence and structure information. The
