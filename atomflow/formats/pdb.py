@@ -129,6 +129,3 @@ class PDBFormat(Format):
         text = "\n".join(cls.line_from_atom(a) for a in atoms)
         with open(path, "w") as file:
             file.write(text + "\n")
-
-if __name__ == '__main__':
-    pass

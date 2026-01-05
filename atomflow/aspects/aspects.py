@@ -4,7 +4,7 @@ from dataclasses import dataclass
 class Aspect:
 
     """
-    Aspect objects represent shared labels for data items associated with an atom.
+    Aspect objects represent shared labels for data associated with an atom.
 
     Instances equal the strings they contain for convenience with lookup.
     >>> asp = Aspect("index")

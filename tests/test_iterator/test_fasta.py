@@ -5,7 +5,7 @@ import pytest
 
 from atomflow.components import *
 from atomflow.atom import Atom
-from atomflow.iterator import AtomIterator
+from atomflow.iterator import AtomIterator, read
 
 TEST_FOLDER = pathlib.Path("./tests/test_iterator")
 
@@ -63,3 +63,23 @@ def test_insufficient_data(example_atoms):
     os.remove(filename)
 
     assert ">test\nMVD\n" == file_text
+
+
+def test_read(example_atoms):
+
+    """Read creates an atom iterator from any valid file with a fasta extension."""
+
+    test_text = ">test\nMVD\n"
+    test_filename = TEST_FOLDER / "test.fasta"
+
+    with open(test_filename, "w") as file:
+        file.write(test_text)
+
+    try:
+        a_iter = read(test_filename)
+    finally:
+        os.remove(test_filename)
+
+    atom_v, atom_m, atom_d = example_atoms
+
+    assert list(a_iter) == [(atom_m,), (atom_v,), (atom_d,)]

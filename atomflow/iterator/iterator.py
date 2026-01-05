@@ -16,7 +16,7 @@ END = object()
 class AtomIterator:
 
     """
-    Base iterator. Converts a list of Atoms into an iterator of (Atom,).
+    Base iterator over groups of atoms.
 
     >>> from atomflow.atom import Atom
     >>> from atomflow.components import NameComponent, ResidueComponent, IndexComponent
@@ -77,6 +77,15 @@ class AtomIterator:
 
     def write(self, path: str | os.PathLike) -> str | list[str]:
 
+        """
+        Writes atoms group-wise to the path. Intended format is inferred from the file
+        extension. If multiple files are produces, variations on the file name are produced
+        automatically.
+
+        :param path: location for output file, e.g. './data/struct.pdb'
+        :return: path(s) to outputs
+        """
+
         outpaths = []
 
         # Retrieve the correct format
@@ -104,7 +113,7 @@ class AtomIterator:
 class GroupIterator(AtomIterator):
 
     """
-    Dispenses sequential atoms grouped by a given aspect.
+    Dispense sequential atoms grouped by a given aspect.
 
     >>> from atomflow.atom import Atom
     >>> from atomflow.components import NameComponent, ResidueComponent
@@ -178,7 +187,7 @@ class GroupIterator(AtomIterator):
 class FilterIterator(AtomIterator):
 
     """
-    Filters Atoms based on either allowed or disallowed values of an aspect.
+    Filter Atoms based on either allowed or disallowed values of an aspect.
 
     >>> from atomflow.atom import Atom
 
@@ -222,6 +231,11 @@ class FilterIterator(AtomIterator):
 
 
 def read(path: str | os.PathLike) -> AtomIterator:
+
+    """
+    Read a file into an iterator of atoms. Format is inferred from file extension.
+    """
+
     path = pathlib.Path(path)
     reader = Format.get_format(path.suffix)
     atoms = reader.read_file(path)

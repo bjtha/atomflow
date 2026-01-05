@@ -7,17 +7,13 @@ from atomflow.components import Component, NameComponent
 class Atom:
 
     r"""
-    >>> from atomflow.aspects import NameAspect, ElementAspect, PositionAspect
+    >>> from atomflow.aspects import NameAspect
     >>> from atomflow.components import NameComponent, IndexComponent
 
-    Data is added to Atoms in the form of components, during or after initialisation.
-    >>> component = NameComponent("CA")
-    >>> atom = Atom(component)
-    >>> assert atom._components == {NameAspect: [component]}
-
-    >>> atom = Atom()
-    >>> atom.add(component)
-    >>> assert atom._components == {NameAspect: [component]}
+    Data components can be added at initialisation.
+    >>> name_cmp = NameComponent("CA")
+    >>> atom = Atom(name_cmp)
+    >>> assert atom._components == {NameAspect: [name_cmp]}
 
     Underlying data can be accessed with dot- or square bracket-notation with the aspect keyword.
     >>> assert atom.name == "CA"
@@ -29,29 +25,8 @@ class Atom:
         ...
     AttributeError: Atom has no data for 'tree'
 
-    The .get() method, however, returns None if the aspect keyword isn't in the dictionary.
-    >>> assert atom.get("name") == "CA"
-    >>> assert atom.get("tree") is None
-
-    New components overwrite others with the same aspects
-    >>> assert atom.name == "CA"
-    >>> atom.add(NameComponent("N"))
-    >>> assert atom.name == "N"
-
-    Checking if an atom implements a given aspect:
-    >>> assert atom.implements(NameAspect) == True
-    >>> assert atom.implements(ElementAspect) == False
-
-    Implementation can also be checked against recipes, which are expected as branching mappings,
-    with each key as the logical operator for the following iterable.
-    >>> recipe = {"or" : [NameAspect, {"and": [ElementAspect, PositionAspect]}]}
-    >>> assert atom.implements(recipe) == True
-
-    >>> recipe = {"and": [PositionAspect, {"or": [NameAspect, ElementAspect]}]}
-    >>> assert atom.implements(recipe) == False
-
-    Two string represnetations are available. The default short (s) format only shows aspects
-    and their associated values in alphabetical order:
+    The default short (s) string format only shows aspects and their associated values in alphabetical
+    order:
     >>> atom = Atom(NameComponent("CA"), IndexComponent(1))
     >>> assert str(atom) == f"{atom:s}" == "Atom(index=1, name=CA)"
 
@@ -102,12 +77,47 @@ class Atom:
 
     def add(self, cmp: Component) -> None:
 
+        """
+        Add a component to the atom.
+
+        >>> from atomflow.aspects import IndexAspect
+        >>> from atomflow.components import IndexComponent
+        >>> index_cmp = IndexComponent(1)
+        >>> atom = Atom()
+        >>> atom.add(index_cmp)
+        >>> assert atom._components == {IndexAspect: [index_cmp]}
+
+        New components overwrite others with the same aspects.
+        >>> assert atom.index == 1
+        >>> atom.add(IndexComponent(2))
+        >>> assert atom.index == 2
+        """
+
         for asp in cmp.aspects:
             self._components.setdefault(asp, []).append(cmp)
 
-    def implements(self, item: Aspect | Mapping) -> bool:
+    def implements(self, item: Aspect | str | Mapping) -> bool:
 
-        if isinstance(item, Aspect):
+        """
+        Check if an atom implements an aspect or conforms to a recipe.
+
+        >>> from atomflow.aspects import NameAspect, ElementAspect, PositionAspect
+        >>> atom = Atom(NameComponent("CA"))
+
+        Single aspects can be referred to by their instances, or their string names.
+        >>> assert atom.implements(NameAspect) == True
+        >>> assert atom.implements("name") == True
+        >>> assert atom.implements(ElementAspect) == False
+
+        Recipes are expected as branching mappings with each key as the logical operator
+        for the following iterable of aspects.
+        >>> recipe = {"or" : [NameAspect, {"and": [ElementAspect, PositionAspect]}]}
+        >>> assert atom.implements(recipe) == True
+        >>> recipe = {"and": [PositionAspect, {"or": [NameAspect, ElementAspect]}]}
+        >>> assert atom.implements(recipe) == False
+        """
+
+        if isinstance(item, Aspect) or isinstance(item, str):
             return item in self._components
 
         elif isinstance(item, Mapping):
@@ -126,6 +136,15 @@ class Atom:
         return True
 
     def get(self, asp: str | Aspect):
+
+        """Retrieve data for an aspect, returning None if the data doesn't exist.
+
+        >>> from atomflow.components import NameComponent
+        >>> atom = Atom(NameComponent("CA"))
+        >>> assert atom.get("name") == "CA"
+        >>> assert atom.get("tree") is None
+        """
+
         try:
             return self.__getattr__(asp)
         except AttributeError:
