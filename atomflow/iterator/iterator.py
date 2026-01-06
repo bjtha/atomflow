@@ -6,7 +6,7 @@ from collections.abc import Iterable
 import pathlib
 
 from atomflow.atom import Atom
-from atomflow.components import NameComponent, ResidueComponent, IndexComponent
+from atomflow.components import NameComponent, ResidueComponent, IndexComponent, ChainComponent
 from atomflow.formats import Format
 
 
@@ -18,9 +18,7 @@ class AtomIterator:
     """
     Base iterator over groups of atoms.
 
-    >>> from atomflow.atom import Atom
-    >>> from atomflow.components import NameComponent, ResidueComponent, IndexComponent
-
+    Generally made at the start of an iterator chain from a list.
     >>> atom_a = Atom(NameComponent("A"), ResidueComponent("X"), IndexComponent(3))
     >>> atom_b = Atom(NameComponent("B"), ResidueComponent("X"), IndexComponent(1))
     >>> atom_c = Atom(NameComponent("C"), ResidueComponent("Y"), IndexComponent(2))
@@ -59,7 +57,10 @@ class AtomIterator:
     def group_by(self, key: str | None = None):
         return GroupIterator(self, key)
 
-    def filter(self, key: str, any_of: None | Iterable = None, none_of: None | Iterable = None) -> AtomIterator:
+    def filter(self, key: str,
+               any_of: None | Iterable = None,
+               none_of: None | Iterable = None,
+               ) -> AtomIterator:
         return FilterIterator(self, key, any_of, none_of)
 
     @classmethod
@@ -75,49 +76,65 @@ class AtomIterator:
     def to_list(self) -> list[Atom]:
         return [atm for grp in self for atm in grp]
 
-    def write(self, path: str | os.PathLike) -> str | list[str]:
+    def write(self,
+              path: str | os.PathLike,
+              path_fmt: Iterable[str] | None = None,
+              ) -> tuple[list[str], list[Exception]]:
 
         """
         Writes atoms group-wise to the path. Intended format is inferred from the file
-        extension. If multiple files are produces, variations on the file name are produced
-        automatically.
+        extension. Variations of the file name are produced automatically if needed.
 
         :param path: location for output file, e.g. './data/struct.pdb'
-        :return: path(s) to outputs
+        :param path_fmt: aspects to insert into empty curly brace pairs in path name. Values are
+        taken from the first atom in the group. E.g., for atoms grouped by chain, with chain aspect
+        values "A" and "B":
+        <AtomIterator>.write(path="./struct_{}.pdb", path_fmt=["chain"])
+        -> ["./struct_A.pdb", "./struct_B.pdb"]
+
+        :return: ([paths to outputs], [errors])
         """
 
-        outpaths = []
-
-        # Retrieve the correct format
         path = pathlib.Path(path)
         ext = path.suffix
+
+        # Retrieve the correct format
         writer = Format.get_format(ext)
 
-        # Write each group as it arrives
-        for i, group in enumerate(self):
-            stem = path.stem if i == 0 else f"{path.stem}_{i}"
-            outpath = path.parent / f"{stem}{ext}"
-            writer.to_file(group, outpath)
-            outpaths.append(outpath)
+        filenames = []
+        errors = []
 
-        # Return the written filepaths
-        match len(outpaths):
-            case 0:
-                raise ValueError("No atoms written")
-            case 1:
-                return str(outpaths[0])
-            case _:
-                return [str(o) for o in outpaths]
+        for i, group in enumerate(self):
+
+            stem = path.stem
+
+            # Format filename with aspects
+            if path_fmt:
+                group = list(group)
+                atom = group[0]
+                stem = stem.format(*[atom[asp] for asp in path_fmt])
+
+            # If filename has already been used, make a variant
+            filename = str(path.parent / f"{stem}{ext}")
+            variant_count = 0
+            while filename in filenames:
+                variant_count += 1
+                filename = str(path.parent / f"{stem}_{variant_count}{ext}")
+
+            # Attempt to write atoms to format
+            try:
+                writer.to_file(group, filename)
+                filenames.append(str(filename))
+            except Exception as e:
+                errors.append(e)
+
+        return filenames, errors
 
 
 class GroupIterator(AtomIterator):
 
     """
     Dispense sequential atoms grouped by a given aspect.
-
-    >>> from atomflow.atom import Atom
-    >>> from atomflow.components import NameComponent, ResidueComponent
-
     >>> atom_a = Atom(NameComponent("A"), ResidueComponent("X"))
     >>> atom_b = Atom(NameComponent("B"), ResidueComponent("Y"))
     >>> atom_c = Atom(NameComponent("B"), ResidueComponent("X"))
@@ -188,8 +205,6 @@ class FilterIterator(AtomIterator):
 
     """
     Filter Atoms based on either allowed or disallowed values of an aspect.
-
-    >>> from atomflow.atom import Atom
 
     >>> atom_a = Atom(NameComponent("A"))
     >>> atom_b = Atom(NameComponent("B"))

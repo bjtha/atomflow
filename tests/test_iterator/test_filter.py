@@ -31,7 +31,7 @@ def test_filter_resname(example_atoms):
 
     """Atoms can be filtered on residue name with the key 'resname'."""
 
-    filename = AtomIterator\
+    (filename,), _ = AtomIterator\
         .from_list(example_atoms) \
         .filter("resname", none_of=["HIS"])\
         .collect()\
@@ -51,7 +51,7 @@ def test_filter_chain(example_atoms):
 
     """Atoms can be filtered on chain with the key 'chain'."""
 
-    filename = AtomIterator\
+    (filename,), _ = AtomIterator\
         .from_list(example_atoms) \
         .filter("chain", any_of=["B"])\
         .collect()\

@@ -1,15 +1,12 @@
 from typing import Self, Iterable, Mapping
 
-from atomflow.aspects import Aspect
-from atomflow.components import Component, NameComponent
+from atomflow.aspects import Aspect, NameAspect, PositionAspect, ElementAspect, IndexAspect
+from atomflow.components import Component, NameComponent, IndexComponent
 
 
 class Atom:
 
     r"""
-    >>> from atomflow.aspects import NameAspect
-    >>> from atomflow.components import NameComponent, IndexComponent
-
     Data components can be added at initialisation.
     >>> name_cmp = NameComponent("CA")
     >>> atom = Atom(name_cmp)
@@ -79,9 +76,6 @@ class Atom:
 
         """
         Add a component to the atom.
-
-        >>> from atomflow.aspects import IndexAspect
-        >>> from atomflow.components import IndexComponent
         >>> index_cmp = IndexComponent(1)
         >>> atom = Atom()
         >>> atom.add(index_cmp)
@@ -101,10 +95,8 @@ class Atom:
         """
         Check if an atom implements an aspect or conforms to a recipe.
 
-        >>> from atomflow.aspects import NameAspect, ElementAspect, PositionAspect
-        >>> atom = Atom(NameComponent("CA"))
-
         Single aspects can be referred to by their instances, or their string names.
+        >>> atom = Atom(NameComponent("CA"))
         >>> assert atom.implements(NameAspect) == True
         >>> assert atom.implements("name") == True
         >>> assert atom.implements(ElementAspect) == False
@@ -139,7 +131,6 @@ class Atom:
 
         """Retrieve data for an aspect, returning None if the data doesn't exist.
 
-        >>> from atomflow.components import NameComponent
         >>> atom = Atom(NameComponent("CA"))
         >>> assert atom.get("name") == "CA"
         >>> assert atom.get("tree") is None

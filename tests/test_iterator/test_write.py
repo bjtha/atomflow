@@ -28,6 +28,20 @@ def example_atoms() -> list[Atom]:
     return [atom1, atom2, atom3]
 
 
+def test_write_failure(example_atoms):
+
+    """Write returns a list of all filenames that were written, and all exceptions that occurred."""
+
+    # Missing Element aspect
+    atom4 = Atom(IndexComponent(4), AAResidueComponent("VAL"), ChainComponent("B"),
+                 ResIndexComponent(4), CoordXComponent(4.0), CoordYComponent(4.0), CoordZComponent(4.0))
+
+    bad_atoms = example_atoms + [atom4]
+
+    filenames, (err,) = AtomIterator.from_list(bad_atoms).collect().write("./test.pdb")
+
+    assert isinstance(err, ValueError)
+
 
 def test_write_multiple_fasta(example_atoms):
 
@@ -35,7 +49,7 @@ def test_write_multiple_fasta(example_atoms):
 
     true_texts = [">test\nM\n", ">test\nE\n", ">test\nH\n"]
 
-    files = AtomIterator.from_list(example_atoms).write(TEST_FOLDER / "test.fasta")
+    files, errs = AtomIterator.from_list(example_atoms).write(TEST_FOLDER / "test.fasta")
 
     file_texts = []
     for filename in files:
@@ -50,7 +64,7 @@ def test_write_single_fasta(example_atoms):
 
     """Atoms in the same group should be written to one fasta file, ordered by residue index."""
 
-    filename = AtomIterator.from_list(example_atoms).collect().write(TEST_FOLDER / "test.fasta")
+    (filename,), _ = AtomIterator.from_list(example_atoms).collect().write(TEST_FOLDER / "test.fasta")
 
     with open(filename) as file:
         file_text = file.read()
@@ -67,7 +81,7 @@ def test_insufficient_fasta_data(example_atoms):
     atom_d = Atom(AAResidueComponent("GLY"), EntityComponent("test"))
 
     bad_atoms = example_atoms + [atom_d]
-    filename = AtomIterator.from_list(bad_atoms).collect().write(TEST_FOLDER / "test.fasta")
+    (filename,), _ = AtomIterator.from_list(bad_atoms).collect().write(TEST_FOLDER / "test.fasta")
 
     with open(filename) as file:
         file_text = file.read()
@@ -80,7 +94,7 @@ def test_write_single_pdb(example_atoms):
 
     """Atoms in the same group are written to the same .pdb file."""
 
-    filename = AtomIterator.from_list(example_atoms).collect().write(TEST_FOLDER / "test.pdb")
+    (filename,), _ = AtomIterator.from_list(example_atoms).collect().write(TEST_FOLDER / "test.pdb")
 
     with open(filename) as file:
         file_text = file.read()
@@ -97,7 +111,7 @@ def test_write_multiple_pdb(example_atoms):
 
     """Atoms in different groups are written to separate .pdb files."""
 
-    filenames = AtomIterator\
+    filenames, _ = AtomIterator\
         .from_list(example_atoms)\
         .group_by("chain")\
         .write(TEST_FOLDER / "test.pdb")
@@ -117,31 +131,17 @@ def test_write_multiple_pdb(example_atoms):
                       f"ATOM      3  O   HIS B   3       3.000   3.000   3.000  1.00  0.00           O  \n"
 
 
-def test_insufficient_pdb_data(example_atoms):
+def test_outpath_formating(example_atoms):
 
-    """If any atom in a group has insufficient data for a .pdb file, the write should fail."""
+    """Output file names can be defined dynamically, replacing named aspect tokens with the values
+    from the first atom of the group being written."""
 
-    # Missing Element
-    atom4 = Atom(IndexComponent(4), AAResidueComponent("VAL"), ChainComponent("B"),
-                 ResIndexComponent(4), CoordXComponent(4.0), CoordYComponent(4.0), CoordZComponent(4.0))
+    filenames, _ = AtomIterator \
+        .from_list(example_atoms) \
+        .group_by("chain") \
+        .write(TEST_FOLDER / "test_chain{}_res{}.pdb", path_fmt=("chain", "resindex"))
 
-    bad_atoms = example_atoms + [atom4]
+    for filename in filenames:
+        os.remove(filename)
 
-    with pytest.raises(ValueError):
-        AtomIterator.from_list(bad_atoms).collect().write("./test.pdb")
-
-
-def test_outpath_formating():
-
-    # Define a set of example atoms
-
-    # try:
-
-        # Format output path using an aspect that differs between them
-
-        # Check that the filenames are as expected
-
-    # finally:
-
-        # clean up the files
-    raise NotImplementedError
+    assert filenames == [str(TEST_FOLDER / "test_chainA_res1.pdb"), str(TEST_FOLDER / "test_chainB_res2.pdb")]
