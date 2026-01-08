@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import os
 from collections import deque
 from collections.abc import Iterable
+from operator import attrgetter
+import os
 import pathlib
 
 from atomflow.atom import Atom
-from atomflow.components import NameComponent, ResidueComponent, IndexComponent, ChainComponent
+from atomflow.components import NameComponent, ResidueComponent, IndexComponent
 from atomflow.formats import Format
 
 
@@ -16,33 +17,35 @@ END = object()
 class AtomIterator:
 
     """
-    Base iterator over groups of atoms.
+    Base iterator over groups of atoms, generally made at the start of an iterator chain.
 
-    Generally made at the start of an iterator chain from a list.
+    Can be initialised directly from an iterable of iterables of Atoms objects. By itself,
+    outputs groups as it receives them.
     >>> atom_a = Atom(NameComponent("A"), ResidueComponent("X"), IndexComponent(3))
     >>> atom_b = Atom(NameComponent("B"), ResidueComponent("X"), IndexComponent(1))
     >>> atom_c = Atom(NameComponent("C"), ResidueComponent("Y"), IndexComponent(2))
+
+    >>> groups = [(atom_a,), (atom_b, atom_c)]
+    >>> a_iter = AtomIterator(groups)
+    >>> assert list(a_iter) == [(atom_a,), (atom_b, atom_c)]
+
+    AtomIterator.from_list() creates an iterator over groups containing individual atoms.
     >>> a_iter = AtomIterator.from_list([atom_a, atom_b, atom_c])
     >>> assert list(a_iter) == [(atom_a,), (atom_b,), (atom_c,)]
 
-    AtomIterator.collect() brings all atoms into a single group.
+    AtomIterator.collect() creates an iterator that yields all atoms as a single group.
     >>> a_iter = AtomIterator.from_list([atom_a, atom_b, atom_c]).collect()
     >>> assert list(a_iter) == [(atom_a, atom_b, atom_c)]
 
-    While .to_list() flattens the groups.
-    >>> a_iter = AtomIterator.from_list([atom_a, atom_b, atom_c]).to_list()
-    >>> assert list(a_iter) == [atom_a, atom_b, atom_c]
+    AtomIterator.to_list() returns a list with groups have been flattened.
+    >>> groups = [(atom_a, atom_b), (atom_c,)]
+    >>> assert AtomIterator(groups).to_list() == [atom_a, atom_b, atom_c]
 
-    Subclasses are iterators that can be passed between each other via functions inherited from
-    this class.
+    Subclasses are iterators that can be passed between each other via functions
+    inherited from this class.
     >>> a_iter = AtomIterator.from_list([atom_a, atom_b, atom_c])
     >>> a_list = a_iter.group_by("resname").filter("name", none_of=["B"]).to_list()
     >>> assert a_list == [atom_c]
-
-    Sort atoms based on a given key aspect.
-    >>> a_iter = AtomIterator.from_list([atom_a, atom_b, atom_c])
-    >>> a_list = a_iter.sort("index").to_list()
-    >>> assert a_list == [atom_b, atom_c, atom_a]
     """
 
     def __init__(self, atom_groups: Iterable[Iterable[Atom]]):
@@ -54,26 +57,44 @@ class AtomIterator:
     def __iter__(self):
         return self
 
-    def group_by(self, key: str | None = None):
-        return GroupIterator(self, key)
+    def group_by(self, aspect: str | None = None) -> GroupIterator:
 
-    def filter(self, key: str,
-               any_of: None | Iterable = None,
-               none_of: None | Iterable = None,
-               ) -> AtomIterator:
-        return FilterIterator(self, key, any_of, none_of)
+        """Group sequential atoms which share the aspect value. Precede with .collect().sort(aspect) to group
+        all atoms"""
+
+        return GroupIterator(self, aspect)
+
+    def filter(self, aspect: str,
+               any_of: None | Iterable = None, none_of: None | Iterable = None) -> FilterIterator:
+
+        """Filter atom groups based on the given criteria. If the value of aspect for any one atom in a group matches
+        the any_of or none_of conditions, the whole group is included or excluded, respectively."""
+
+        return FilterIterator(self, aspect, any_of, none_of)
 
     @classmethod
-    def from_list(cls, atoms: Iterable[Atom]) -> AtomIterator:
+    def from_list(cls, atoms: Iterable[Atom]) -> GroupIterator:
+
+        """Convert an iterable of atoms into an iterator over groups containing individual atoms."""
+
         return GroupIterator([atoms])
 
     def collect(self) -> AtomIterator:
+
+        """Create an iterator that returns all atoms in one group."""
+
         return AtomIterator([tuple(self.to_list())])
 
-    def sort(self, key: str):
-        return AtomIterator([sorted(self.to_list(), key=lambda a: a[key])])
+    def sort(self, aspect: str) -> SortedIterator:
+
+        """Sort each group by the given aspect."""
+
+        return SortedIterator(self, aspect, rev=False)
 
     def to_list(self) -> list[Atom]:
+
+        """Return a list of atoms with all groups flattened."""
+
         return [atm for grp in self for atm in grp]
 
     def write(self,
@@ -208,33 +229,30 @@ class FilterIterator(AtomIterator):
 
     >>> atom_a = Atom(NameComponent("A"))
     >>> atom_b = Atom(NameComponent("B"))
-    >>> atom_groups = [(atom_a,), (atom_b,)]
+    >>> atom_c = Atom(NameComponent("C"))
+    >>> atom_groups = [(atom_a,), (atom_b,), (atom_c,)]
     >>> f_iter = FilterIterator(atom_groups, "name", none_of=["B"])
-    >>> assert list(f_iter) == [(atom_a,)]
+    >>> assert list(f_iter) == [(atom_a,), (atom_c,)]
 
     If any one atom in a group matches the any_of or none_of conditions, the whole group is included or
     excluded, respectively.
-
-    >>> atom_c = Atom(NameComponent("C"))
     >>> atom_groups = [(atom_a, atom_c), (atom_b,)]
     >>> f_iter = FilterIterator(atom_groups, "name", none_of=["C"])
     >>> assert list(f_iter) == [(atom_b,)]
-
     >>> f_iter = FilterIterator(atom_groups, "name", any_of=["A"])
     >>> assert list(f_iter) == [(atom_a, atom_c)]
     """
 
-    def __init__(self, atom_groups, key,
+    def __init__(self, atom_groups, aspect: str,
                  any_of: None | Iterable = None, none_of: None | Iterable = None):
 
         super().__init__(atom_groups)
-
-        self.key = key
+        aspect = str(aspect)
 
         if any_of is None:
-            self._filter = lambda group: not any(atom[key] in none_of for atom in group)
+            self._filter = lambda group: not any(atom[aspect] in none_of for atom in group)
         elif none_of is None:
-            self._filter = lambda group: any(atom[key] in any_of for atom in group)
+            self._filter = lambda group: any(atom[aspect] in any_of for atom in group)
         else:
             raise ValueError("One of 'any_of' or 'none_of' must be provided")
 
@@ -243,6 +261,37 @@ class FilterIterator(AtomIterator):
             group = next(self._atom_groups)
             if self._filter(group):
                 return group
+
+
+class SortedIterator(AtomIterator):
+
+    """Sorts the atoms in each group by the given key, or by Atom string if no key given.
+
+    >>> atom_a = Atom(NameComponent("A"))
+    >>> atom_b = Atom(NameComponent("B"))
+    >>> atom_c = Atom(NameComponent("C"))
+    >>> atom_d = Atom(NameComponent("D"))
+    >>> groups = [(atom_c, atom_a), (atom_b, atom_d)]
+
+    >>> assert list(SortedIterator(groups, "name")) == [(atom_a, atom_c), (atom_b, atom_d)]
+    >>> assert list(SortedIterator(groups, "name", rev=True)) == [(atom_c, atom_a), (atom_d, atom_b)]
+
+    Collect first to sort over all atoms
+    >>> a_iter = AtomIterator(groups).collect().sort("name")
+    >>> assert list(a_iter) == [(atom_a, atom_b, atom_c, atom_d)]
+    """
+
+    def __init__(self, atom_groups, aspect: str, rev=False):
+        super().__init__(atom_groups)
+
+        aspect = str(aspect)
+        self._key_fn = attrgetter(aspect)
+        self._rev = rev
+
+    def __next__(self):
+        while True:
+            group = next(self._atom_groups)
+            return tuple(sorted(group, key=self._key_fn, reverse=self._rev))
 
 
 def read(path: str | os.PathLike) -> AtomIterator:
