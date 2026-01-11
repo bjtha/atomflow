@@ -1,5 +1,6 @@
-from collections import defaultdict
+import operator
 import os
+from functools import reduce
 from typing import Iterable
 
 from atomflow.components import *
@@ -134,7 +135,7 @@ class CIFFormat(Format):
         """Reads the information from a cif file into a dict. Optionally only extract categories with given names."""
 
         with open(path, "r") as file:
-            lines = (ln.strip() for ln in file.readlines())
+            lines = (ln.rstrip() for ln in file.readlines())
 
         tables = {}
         in_table = False
@@ -146,10 +147,12 @@ class CIFFormat(Format):
 
         for line in lines:
 
-            if line == "#":
+            if line.startswith("#"):
+                if in_text_block:
+                    raise ValueError(f"Unexpected end of text block on line:\n{line}")
                 in_table = False
 
-            elif line == "loop_":
+            elif line.startswith("loop_"):
                 in_table = True
 
             elif in_table:
@@ -166,7 +169,7 @@ class CIFFormat(Format):
                     tables.setdefault(cat, dict())[field] = []
                     num_cols = len(tables[cat])
                 else:
-                    # This line has data from the table
+                    # This line has a row of data from the table
                     buffer += cls._split_line(line)
                     if len(buffer) < num_cols:
                         # Table rows can run over multiple lines. If the number of values on this line is less
@@ -177,17 +180,9 @@ class CIFFormat(Format):
                     buffer = []
 
             elif line.startswith("_"):
-                # This line contains a non-tabular data item
-
-                # If this represents the end of a text block, deal with the collected data.
+                # This line describes a data item
                 if in_text_block:
-                    if not buffer:
-                        raise ValueError(f"Expected text block, got: '{line}'")
-                    item = "".join(buffer)
-                    # category and field names will still be as they were when the text block was discovered
-                    tables.setdefault(cat, dict())[field] = item
-                    in_text_block = False
-                    buffer = []
+                    raise ValueError(f"Unexpected end of text block on line:\n{line}")
 
                 parts = cls._split_line(line)
                 cat, field = parts[0].split(".")
@@ -204,11 +199,20 @@ class CIFFormat(Format):
                     # Otherwise, the second part of the line is the data for this field.
                     tables.setdefault(cat, dict())[field] = parts[1]
                 else:
-                    raise ValueError(f"Too many data items on line: {line}")
+                    raise ValueError(f"Too many data items on line, expected 2 or fewer:\n{line}")
 
             elif in_text_block:
                 # This line is part of a text block.
-                buffer.append(line.lstrip(";").strip())
+                if line.startswith(";"):
+                    if buffer:
+                        item = "".join(buffer)
+                        tables.setdefault(cat, dict())[field] = item
+                        in_text_block = False
+                        buffer = []
+                        continue
+                    else:
+                        line = line.lstrip(";").strip()
+                buffer.append(line)
 
         return tables
 
@@ -232,5 +236,5 @@ class CIFFormat(Format):
 
 
 if __name__ == '__main__':
-    data = CIFFormat._extract_data("../../tests/data/cif/1A52.cif", names=("_pdbx_entity_nonpoly",))
-    print(data)
+    data = CIFFormat._extract_data("../../tests/data/cif/1A52.cif")
+    print(len(data["_entity_poly"]["pdbx_seq_one_letter_code"]))
