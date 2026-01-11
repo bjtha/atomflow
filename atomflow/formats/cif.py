@@ -42,7 +42,7 @@ class CIFFormat(Format):
     @classmethod
     def read_file(cls, path: str | os.PathLike) -> list[Atom]:
 
-        tables = cls._extract_tables(path, names=("_entity", "_atom_site"))
+        tables = cls._extract_data(path, names=("_entity", "_atom_site"))
 
         entity_table = tables["_entity"]
         atom_table = tables["_atom_site"]
@@ -94,7 +94,7 @@ class CIFFormat(Format):
     @staticmethod
     def _split_line(line: str) -> list[str]:
 
-        """Splits line by whitespace, except within single quote marks.
+        """Splits line by whitespace, except within single or double quote marks.
 
         >>> ln = "foo 'hello world'\tbar"
         >>> assert CIFFormat._split_line(ln) == ["foo", "hello world", "bar"]
@@ -102,12 +102,16 @@ class CIFFormat(Format):
 
         parts = []
         chars = ""
-        quote = False
+        quote = []
 
         for char in line:
-            if char == "'":
-                quote = not quote
-                continue
+            if char in ('"', "'"):
+                if not quote:
+                    quote.append(char)
+                    continue
+                elif char in quote:
+                    quote.remove(char)
+                    continue
             elif char == " ":
                 if not chars:
                     # Skip consecutive whitespace
@@ -125,17 +129,19 @@ class CIFFormat(Format):
         return parts
 
     @classmethod
-    def _extract_tables(cls, path: str | os.PathLike, names: None | Iterable[str] = None) -> dict:
+    def _extract_data(cls, path: str | os.PathLike, names: None | Iterable[str] = None) -> dict:
 
-        """Reads the table information from a cif file. Optionally only extract tables with given names."""
+        """Reads the information from a cif file into a dict. Optionally only extract categories with given names."""
 
         with open(path, "r") as file:
             lines = (ln.strip() for ln in file.readlines())
 
-        tables = defaultdict(dict)
+        tables = {}
         in_table = False
+        in_text_block = False
         cat = None
-        values = []
+        field = None
+        buffer = []
         num_cols = 0
 
         for line in lines:
@@ -148,21 +154,61 @@ class CIFFormat(Format):
 
             elif in_table:
                 if line.startswith("_"):
+                    # This line describes a field in the table
                     cat, field = line.split(".")
+
+                    # If 'names' arg has been given, and this category isn't in it, skip the table.
                     if names and cat not in names:
                         in_table = False
                         continue
-                    tables[cat][field] = []
+
+                    # Add the field to the table
+                    tables.setdefault(cat, dict())[field] = []
                     num_cols = len(tables[cat])
                 else:
-                    values += cls._split_line(line)
-                    if len(values) < num_cols:
+                    # This line has data from the table
+                    buffer += cls._split_line(line)
+                    if len(buffer) < num_cols:
                         # Table rows can run over multiple lines. If the number of values on this line is less
-                        # than the expected number of fields, roll the values over to the next line.
+                        # than the expected number of fields, aggregate with values from the next line.
                         continue
-                    for field, value in zip(tables[cat], values, strict=True):
+                    for field, value in zip(tables[cat], buffer, strict=True):
                         tables[cat][field].append(value)
-                    values = []
+                    buffer = []
+
+            elif line.startswith("_"):
+                # This line contains a non-tabular data item
+
+                # If this represents the end of a text block, deal with the collected data.
+                if in_text_block:
+                    if not buffer:
+                        raise ValueError(f"Expected text block, got: '{line}'")
+                    item = "".join(buffer)
+                    # category and field names will still be as they were when the text block was discovered
+                    tables.setdefault(cat, dict())[field] = item
+                    in_text_block = False
+                    buffer = []
+
+                parts = cls._split_line(line)
+                cat, field = parts[0].split(".")
+
+                # If 'names' arg has been given, and this category isn't in it, skip the item.
+                if names and cat not in names:
+                    continue
+
+                num_parts = len(parts)
+                if num_parts == 1:
+                    # If only an identifier, then a multi-line text block is expected to follow.
+                    in_text_block = True
+                elif num_parts == 2:
+                    # Otherwise, the second part of the line is the data for this field.
+                    tables.setdefault(cat, dict())[field] = parts[1]
+                else:
+                    raise ValueError(f"Too many data items on line: {line}")
+
+            elif in_text_block:
+                # This line is part of a text block.
+                buffer.append(line.lstrip(";").strip())
 
         return tables
 
@@ -186,5 +232,5 @@ class CIFFormat(Format):
 
 
 if __name__ == '__main__':
-    atoms = CIFFormat.read_file("../../tests/data/cif/1A52.cif")
-    print(f"{len(atoms)} read")
+    data = CIFFormat._extract_data("../../tests/data/cif/1A52.cif", names=("_pdbx_entity_nonpoly",))
+    print(data)
