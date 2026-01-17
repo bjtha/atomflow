@@ -111,6 +111,37 @@ def test_extract_data_tables():
                               "count": ["3", "2"],
                               "description": ["red and bouncy", "soft and sticky"]}}
 
+
+def test_extract_data_selection():
+
+    """If provided, only named data categories are extracted."""
+
+    file_name = TEST_FOLDER / "test.cif"
+
+    text = "\n".join([
+        "#",
+        "_data.item      1",
+        "_data.text",
+        ";The quick brown",
+        " fox jumped over",
+        " the lazy dog.",
+        ";",
+        "#",
+        "_info.name      A",
+        "#"
+    ])
+
+    with open(file_name, "w") as file:
+        file.write(text)
+
+    try:
+        data = CIFFormat._extract_data(file_name, categories=("_info",))
+    finally:
+        os.remove(file_name)
+
+    assert data == {"_info": {"name": "A"}}
+
+
 def test_extract_data_table_failures():
 
     # Read fails if there's a mismatch between the number of declared fields and the number of data items
@@ -133,3 +164,114 @@ def test_extract_data_table_failures():
     with pytest.raises(ValueError):
         CIFFormat._extract_data(file_name)
     os.remove(file_name)
+
+
+def test_write_data_items():
+
+    file_name = TEST_FOLDER / "test.cif"
+
+    data = {"_data": {"item": "1",
+                      "name": "A"}}
+
+    true_text = "\n".join([
+        "data_",
+        "#",
+        "_data.item 1",
+        "_data.name A",
+        "#",
+    ])
+
+    try:
+        CIFFormat._write_from_dict(data, file_name)
+        with open(file_name, "r") as file:
+            file_text = file.read()
+        assert true_text == file_text
+
+    finally:
+        if os.path.exists(file_name):
+            os.remove(file_name)
+
+
+def test_text_block_wrapping():
+
+    wrap_at = 10
+
+    tests = [
+        ("abcdefghij", [";abcdefghij", ";"]),
+        ("abcdefghijk", [";abcdefghij", "k", ";"]),
+        ("abcdefghij k", [";abcdefghij", " k", ";"]),
+        ("abcdefghi jk", [";abcdefghi", " jk", ";"]),
+        ("abc defghijk", [";abc defghi", "jk", ";"]),
+        ("abcdefghi  ", [";abcdefghi", ";"]),
+    ]
+
+    for case, answer in tests:
+        assert CIFFormat._value_into_text_block(case, wrap_at) == answer
+
+def test_write_text_block():
+
+    file_name = TEST_FOLDER / "test.cif"
+
+    data = {"_data": {"seq": "MIKRSKKNSLALSLTADQMVSALLDAEPPILYSEYDPTRPFSEASMMGLLTNLADRELVHMINWAKRVPGFVDLTLHDQVHLLECAWLEILMIGLVWRSMEHPGKLL",
+                      "lymeric": "There was a young lady from Ryde, who ate green apples and died. The apples fermented inside the lamented, and made cider inside her insides."}}
+
+    true_text = "\n".join([
+        "data_",
+        "#",
+        "_data.seq",
+        ";MIKRSKKNSLALSLTADQMVSALLDAEPPILYSEYDPTRPFSEASMMGLLTNLADRELVHMINWAKRVPGFVDLTLHDQV",
+        "HLLECAWLEILMIGLVWRSMEHPGKLL",
+        ";",
+        "_data.lymeric",
+        ";There was a young lady from Ryde, who ate green apples and died. The apples ferm",
+        "ented inside the lamented, and made cider inside her insides.",
+        ";",
+        "#",
+    ])
+
+    try:
+        CIFFormat._write_from_dict(data, file_name)
+        with open(file_name, "r") as file:
+            file_text = file.read()
+        assert true_text == file_text
+
+    finally:
+        if os.path.exists(file_name):
+            os.remove(file_name)
+
+
+def test_write_table():
+
+    file_name = TEST_FOLDER / "test.cif"
+
+    data = {"_data": {"name": ["A", "B", "C"],
+                      "count": ["30", "2", "1"],
+                      "description": ["red and bouncy",
+                                      "A leafy plant in a lime-green pot, with a pair of tall, defiant white flowers",
+                                      "soft and sticky"]}}
+
+    true_text = "\n".join([
+        "data_",
+        "#",
+        "loop_",
+        "_data.name",
+        "_data.count",
+        "_data.description",
+        "A 30",
+        "'red and bouncy'",
+        "B 2",
+        "'A leafy plant in a lime-green pot, with a pair of tall, defiant white flowers'",
+        "C 1",
+        "'soft and sticky'",
+        "#"
+    ])
+
+    try:
+        CIFFormat._write_from_dict(data, file_name)
+        with open(file_name, "r") as file:
+            file_text = file.read()
+        assert true_text == file_text
+
+    finally:
+        if os.path.exists(file_name):
+            os.remove(file_name)

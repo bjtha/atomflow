@@ -1,11 +1,12 @@
-import operator
 import os
-from functools import reduce
 from typing import Iterable
 
 from atomflow.components import *
 from atomflow.atom import Atom
 from atomflow.formats import Format
+
+COLUMN_PADDING = 1
+WRAP_AT = 80
 
 class CIFFormat(Format):
 
@@ -43,7 +44,7 @@ class CIFFormat(Format):
     @classmethod
     def read_file(cls, path: str | os.PathLike) -> list[Atom]:
 
-        tables = cls._extract_data(path, names=("_entity", "_atom_site"))
+        tables = cls._extract_data(path, categories=("_entity", "_atom_site"))
 
         entity_table = tables["_entity"]
         atom_table = tables["_atom_site"]
@@ -130,7 +131,7 @@ class CIFFormat(Format):
         return parts
 
     @classmethod
-    def _extract_data(cls, path: str | os.PathLike, names: None | Iterable[str] = None) -> dict:
+    def _extract_data(cls, path: str | os.PathLike, categories: None | Iterable[str] = None) -> dict:
 
         """Reads the information from a cif file into a dict. Optionally only extract categories with given names."""
 
@@ -146,72 +147,61 @@ class CIFFormat(Format):
         num_cols = 0
 
         for line in lines:
+            if in_text_block and line[0] in "#_":
+                raise ValueError(f"Unexpected end of text block on line:\n{line}")
 
             if line.startswith("#"):
-                if in_text_block:
-                    raise ValueError(f"Unexpected end of text block on line:\n{line}")
                 in_table = False
 
             elif line.startswith("loop_"):
                 in_table = True
 
-            elif in_table:
-                if line.startswith("_"):
-                    # This line describes a field in the table
-                    cat, field = line.split(".")
-
-                    # If 'names' arg has been given, and this category isn't in it, skip the table.
-                    if names and cat not in names:
-                        in_table = False
-                        continue
-
-                    # Add the field to the table
-                    tables.setdefault(cat, dict())[field] = []
-                    num_cols = len(tables[cat])
-                else:
-                    # This line has a row of data from the table
-                    buffer += cls._split_line(line)
-                    if len(buffer) < num_cols:
-                        # Table rows can run over multiple lines. If the number of values on this line is less
-                        # than the expected number of fields, aggregate with values from the next line.
-                        continue
-                    for field, value in zip(tables[cat], buffer, strict=True):
-                        tables[cat][field].append(value)
-                    buffer = []
-
             elif line.startswith("_"):
-                # This line describes a data item
-                if in_text_block:
-                    raise ValueError(f"Unexpected end of text block on line:\n{line}")
-
+                # This line declares either a data item, or a table field.
                 parts = cls._split_line(line)
                 cat, field = parts[0].split(".")
-
-                # If 'names' arg has been given, and this category isn't in it, skip the item.
-                if names and cat not in names:
-                    continue
-
                 num_parts = len(parts)
-                if num_parts == 1:
-                    # If only an identifier, then a multi-line text block is expected to follow.
-                    in_text_block = True
+                # If 'categories' arg has been given, and this label's category isn't in it, skip the item / table.
+                if categories and cat not in categories:
+                    in_table = False
+                elif in_table:
+                    tables.setdefault(cat, dict())[field] = []
+                    num_cols = len(tables[cat])
+                # Otherwise, treat as a data item
                 elif num_parts == 2:
-                    # Otherwise, the second part of the line is the data for this field.
                     tables.setdefault(cat, dict())[field] = parts[1]
-                else:
+                elif num_parts > 2:
                     raise ValueError(f"Too many data items on line, expected 2 or fewer:\n{line}")
 
+            # Skip text block lines and table rows if last declared category not selected for extraction
+            elif categories and cat not in categories:
+                continue
+
+            elif line.startswith(";"):
+                # This line is the beginning or end of a text block.
+                # Tell the difference by checking if lines have been accumulated.
+                if buffer:
+                    item = "".join(buffer)
+                    tables.setdefault(cat, dict())[field] = item
+                    in_text_block = False
+                    buffer = []
+                else:
+                    buffer.append(line.lstrip(";").strip())
+                    in_text_block = True
+
+            elif in_table:
+                # This line is a row in a table
+                buffer += cls._split_line(line)
+                if len(buffer) < num_cols:
+                    # Table rows can run over multiple lines. If the number of values on this line is less
+                    # than the expected number of fields, aggregate with values from the next line.
+                    continue
+                for field, value in zip(tables[cat], buffer, strict=True):
+                    tables[cat][field].append(value)
+                buffer = []
+
             elif in_text_block:
-                # This line is part of a text block.
-                if line.startswith(";"):
-                    if buffer:
-                        item = "".join(buffer)
-                        tables.setdefault(cat, dict())[field] = item
-                        in_text_block = False
-                        buffer = []
-                        continue
-                    else:
-                        line = line.lstrip(";").strip()
+                # This line is in the middle of a text block
                 buffer.append(line)
 
         return tables
@@ -234,7 +224,105 @@ class CIFFormat(Format):
         row_num = id_col.index(id_)
         return {k: v[row_num] for k, v in table.items()}
 
+    @classmethod
+    def _write_from_dict(cls, data: dict, path: str | os.PathLike) -> None:
+
+        lines = ["data_", "#"]
+
+        # For each key (category) in the dictionary:
+        for category in data:
+            fields = data[category]
+            labels = [category + "." + f for f in fields]
+
+            if all(isinstance(v, str) for v in fields.values()):
+                # This category contains single label:value pairs
+                col_width = max(map(len, labels)) + COLUMN_PADDING
+                for item, value in fields.items():
+                    label = category + "." + item
+                    if col_width + len(value) > WRAP_AT:
+                        lines.extend([label] + cls._value_into_text_block(value, WRAP_AT))
+                    else:
+                        lines.append(f"{label: <{col_width}}{value}")
+
+            elif all(isinstance(v, list) for v in fields.values()):
+                # This category is a table
+                lines.append("loop_")
+                columns = []
+                widths = []
+                for item, values in data[category].items():
+                    label = category + "." + item
+                    lines.append(label)
+                    col = []
+                    max_width = 0
+                    for v in values:
+                        # Surround strings containing spaces with quotes
+                        formatted = "'" + v + "'" if " " in v else v
+                        col.append(formatted)
+                        max_width = max(max_width, len(formatted))
+                    widths.append(max_width)
+                    columns.append(col)
+
+                for row in zip(*columns):
+                    line = ""
+                    for width, value in zip(widths, row):
+                        if len(value) > WRAP_AT:
+                            raise ValueError(f"Table value exceeds file width ({WRAP_AT}):\n{value}")
+                        padded = f"{value: <{width + COLUMN_PADDING}}"
+                        if len(line) + len(padded) > WRAP_AT:
+                            lines.append(line.rstrip())
+                            line = padded
+                        else:
+                            line += padded
+                    lines.append(line.rstrip())
+
+            else:
+                raise ValueError(f"Unexpected field value types. Must be <str> or <list>.")
+            lines.append("#")
+
+        with open(path, "w") as file:
+            file.write("\n".join(lines))
+
+    @staticmethod
+    def _value_into_text_block(value: str, wrap_at) -> list[str]:
+
+        """Wraps string value into a text block of width 'wrap_at', ensuring to never
+        end a line with whitespace. Leading and tailing whitespace is ignored."""
+
+        value = value.strip()
+        whitespace = {" ", "\t"}
+        text_block_lines = []
+        start = 0
+        break_ = 0
+        i = 0
+
+        # Move cursor i along string value
+        while i < len(value):
+            # When distance between where cursor began and current position == wrap boundary:
+            if i-start == wrap_at:
+                if start == break_:
+                    raise ValueError("Line is only whitespace")
+                # Increment break_ by one so that slicing includes the non-whitespace character it stopped at
+                break_ = break_+1
+                # Add the chunk between the start position and break point to lines
+                text_block_lines.append(value[start:break_])
+                # Update cursor position and start to break point
+                i = break_
+                start = break_
+            if value[i] not in whitespace:
+                # Track the position of the last non-whitespace character
+                break_ = i
+            i += 1
+        # When cursor reaches the end, add the final set of characters
+        text_block_lines.append(value[start:i])
+
+        text_block_lines[0] = ";" + text_block_lines[0]
+        text_block_lines.append(";")
+        return text_block_lines
 
 if __name__ == '__main__':
-    data = CIFFormat._extract_data("../../tests/data/cif/1A52.cif")
-    print(len(data["_entity_poly"]["pdbx_seq_one_letter_code"]))
+    # data = CIFFormat._extract_data("../../tests/data/cif/1A52.cif")
+    # print(len(data["_entity_poly"]["pdbx_seq_one_letter_code"]))
+
+    val = "abcdefghi j"
+    block = CIFFormat._value_into_text_block(val, wrap_at=10)
+    print(block)
