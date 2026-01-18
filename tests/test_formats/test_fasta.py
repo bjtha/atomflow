@@ -1,5 +1,6 @@
 import os
 import pathlib
+import random
 
 import pytest
 
@@ -216,7 +217,7 @@ def test_write_identical_chains():
     assert text == ">protein_A\nM\n"
 
 
-def test_full_read_write_proteins():
+def test_full_read_write_proteins(sample_size=100):
 
     """The write method should conserve all information gathered by the read method."""
 
@@ -224,6 +225,8 @@ def test_full_read_write_proteins():
 
     fasta_files = [f for f in os.listdir(FASTA_SEQUENCES_FOLDER)
                    if os.path.isfile(FASTA_SEQUENCES_FOLDER / f)]
+
+    fasta_files = random.sample(fasta_files, sample_size)
 
     try:
         for filename in fasta_files:

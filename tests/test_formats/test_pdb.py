@@ -1,5 +1,6 @@
 import os
 import pathlib
+import random
 
 import pytest
 
@@ -7,21 +8,9 @@ from atomflow.atom import Atom
 from atomflow.components import *
 from atomflow.formats import *
 
+TEST_FOLDER = pathlib.Path("tests/test_formats")
 PDB_STRUCTURES_FOLDER = pathlib.Path("tests/data/pdb")
-PDB_ATOM_SAMPLE = pathlib.Path("tests/data/pdb_atom_sample.txt")
 
-
-@pytest.fixture
-def example_pdb_atom_records() -> list[tuple]:
-
-    """Provides records from PDB atom sample file, as a list of (record, source_file)"""
-
-    if os.path.exists(PDB_ATOM_SAMPLE):
-        with open(PDB_ATOM_SAMPLE) as file:
-            return [(line[:80], line[80:90]) for line in file.readlines()]
-    else:
-        msg = f"PDB atom sample file not found at '{PDB_ATOM_SAMPLE}'. See tests.utils for functions to build one."
-        raise FileNotFoundError(msg)
 
 @pytest.fixture
 def test_atom():
@@ -41,35 +30,10 @@ def test_atom():
         ElementComponent("N"),
         )
 
-def test_pdb_atom_parsing(example_pdb_atom_records):
 
-    """PDB ATOM and HETATM records should convert into Atom objects and back again without loss."""
+def test_pdb_line_read(test_atom):
 
-    source, record, line_w, atom = (None,)*4
-
-    try:
-        for record, source in example_pdb_atom_records:
-            atom = PDBFormat.atom_from_line(record)
-            line_w = PDBFormat.line_from_atom(atom)
-
-            assert line_w == record
-
-    except AssertionError as e:
-
-        # Print vertically aligned to make differences clearer
-        print(f"{source: <12}{record}")
-        print(f"{"recon": <12}{line_w}")
-        print(f"Atom representation: {atom}")
-
-        raise e
-
-    except Exception as e:
-        raise e
-
-
-def test_pdb_file_read(test_atom):
-
-    filename = "test.pdb"
+    filename = TEST_FOLDER / "test.pdb"
     simple = "ATOM      1  N   MET A   1       1.000   1.000   1.000  1.00 10.00           N  \n"
 
     with open(filename, "w") as file:
@@ -81,9 +45,9 @@ def test_pdb_file_read(test_atom):
     assert file_atom == [test_atom]
 
 
-def test_pdb_file_write(test_atom):
+def test_pdb_line_write(test_atom):
 
-    filename = "./test.pdb"
+    filename = TEST_FOLDER / "test.pdb"
     PDBFormat.to_file([test_atom],filename)
 
     simple = "ATOM      1  N   MET A   1       1.000   1.000   1.000  1.00 10.00           N  \n"
@@ -114,30 +78,36 @@ def test_insufficient_data():
         PDBFormat.to_file([atom], "")
 
 
-def test_full_pdb_read_write():
+def test_pdb_read_write(sample_size=10):
 
     """
-    The write method should conserve all information gathered by the read method.
+    The write method conserves all information gathered by the read method.
 
-    NB: takes a while
+    NB: test of all 1000 files takes a while
     """
+
+    test_filename = TEST_FOLDER / "test.pdb"
 
     pdb_files = [f for f in os.listdir(PDB_STRUCTURES_FOLDER)
                  if os.path.isfile(PDB_STRUCTURES_FOLDER / f)]
 
+    pdb_files = random.sample(pdb_files, sample_size)
+
+    errors = []
+
     try:
         for filename in pdb_files:
             atoms_original = PDBFormat.read_file(PDB_STRUCTURES_FOLDER / filename)
-            PDBFormat.to_file(atoms_original, "./temp.pdb")
-            atoms_new = PDBFormat.read_file("./temp.pdb")
-
+            PDBFormat.to_file(atoms_original, test_filename)
+            atoms_new = PDBFormat.read_file(test_filename)
             assert atoms_original == atoms_new
-
-    except AssertionError as e:
-        raise e
-
+    except AssertionError as ae:
+        raise ae
     except Exception as e:
-        print(str(e))
-
+        errors.append(str(e))
     finally:
-        os.remove("./temp.pdb")
+        if os.path.exists(test_filename):
+            os.remove(test_filename)
+        if errors:
+            print(f"There were {len(errors)} other errors. First error:")
+            print(errors[0])

@@ -194,6 +194,8 @@ def test_write_data_items():
 
 def test_text_block_wrapping():
 
+    """String values are wrapped so that each line ends with a non-whitespace character."""
+
     wrap_at = 10
 
     tests = [
@@ -278,6 +280,9 @@ def test_write_table():
 
 
 def test_full_dict_read_write():
+
+    """Read and write are consistent - all data which can be read from an original .cif file can then be written
+    in the same format, such that a subsequent read of the new file recovers identical data."""
 
     test_file_name = TEST_FOLDER / "test.cif"
     example_file_names = [f for f in os.listdir(DATA_FOLDER) if f.endswith(".cif")]
