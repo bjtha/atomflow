@@ -137,6 +137,7 @@ class Atom:
         """
 
         try:
+            asp = asp.name if isinstance(asp, Aspect) else asp
             return self.__getattr__(asp)
         except AttributeError:
             return None

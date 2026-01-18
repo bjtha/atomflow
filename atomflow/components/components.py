@@ -77,7 +77,7 @@ class Component:
 class AAResidueComponent(Component):
 
     def __init__(self, res):
-        res = str(res).strip()
+        res = str(res)
         if olc := AA_RES_TO_SYM.get(res):
             self._tlc = res
             self._olc = olc
@@ -109,7 +109,7 @@ class AAResidueComponent(Component):
 class AltLocComponent(Component):
 
     def __init__(self, altloc):
-        self._altloc = str(altloc).strip()
+        self._altloc = str(altloc)
 
     @property
     def altloc(self) -> str:
@@ -121,7 +121,7 @@ class AltLocComponent(Component):
 class ChainComponent(Component):
 
     def __init__(self, chain):
-        self._chain = str(chain).strip()
+        self._chain = str(chain)
 
     @property
     def chain(self) -> str:
@@ -166,7 +166,7 @@ class CoordZComponent(Component):
 class DNAResidueComponent(Component):
 
     def __init__(self, res):
-        res = str(res).strip()
+        res = str(res)
         if olc := DNA_RES_TO_SYM.get(res):
             self._olc = olc
             self._resname = res
@@ -194,7 +194,7 @@ class DNAResidueComponent(Component):
 class ElementComponent(Component):
 
     def __init__(self, element):
-        self._element = str(element).strip()
+        self._element = str(element)
 
     @property
     def element(self) -> str:
@@ -206,7 +206,7 @@ class ElementComponent(Component):
 class EntityComponent(Component):
 
     def __init__(self, entity):
-        self._entity = str(entity).strip()
+        self._entity = str(entity)
 
     @property
     def entity(self) -> str:
@@ -218,7 +218,7 @@ class EntityComponent(Component):
 class FormalChargeComponent(Component):
 
     def __init__(self, fcharge):
-        self._fcharge = str(fcharge).strip()
+        self._fcharge = str(fcharge)
 
     @property
     def fcharge(self) -> str:
@@ -242,7 +242,7 @@ class IndexComponent(Component):
 class InsertionComponent(Component):
 
     def __init__(self, insertion):
-        self._insertion = str(insertion).strip()
+        self._insertion = str(insertion)
 
     @property
     def insertion(self) -> str:
@@ -254,7 +254,7 @@ class InsertionComponent(Component):
 class NameComponent(Component):
 
     def __init__(self, name):
-        self._name = str(name).strip()
+        self._name = str(name)
 
     @property
     def name(self) -> str:
@@ -278,7 +278,7 @@ class OccupancyComponent(Component):
 class PolymerComponent(Component):
 
     def __init__(self, polymer):
-        self._polymer = str(polymer).strip()
+        self._polymer = str(polymer)
 
     @property
     def polymer(self) -> str:
@@ -289,7 +289,7 @@ class PolymerComponent(Component):
 class PositionComponent(Component):
 
     def __init__(self, position):
-        self._position = str(position).strip()
+        self._position = str(position)
 
     @property
     def position(self) -> str:
@@ -301,7 +301,7 @@ class PositionComponent(Component):
 class ResidueComponent(Component):
 
     def __init__(self, resname):
-        self._resname = str(resname).strip()
+        self._resname = str(resname)
 
     @property
     def resname(self) -> str:
@@ -325,7 +325,7 @@ class ResIndexComponent(Component):
 class RNAResidueComponent(Component):
 
     def __init__(self, res):
-        res = str(res).strip()
+        res = str(res)
         if res in RNA_RES_CODES:
             self._resname = res
         else:

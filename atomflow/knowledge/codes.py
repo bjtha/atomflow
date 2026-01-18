@@ -6,6 +6,8 @@ AA_RES_TO_SYM = {
     "UNK": "X", "SEC": "U", "PYL": "O", "ASX": "B", "GLX": "Z"
 }
 
+AA_THREE_LETTER_CODES = set(AA_RES_TO_SYM)
+
 AA_SYM_TO_RES = {v: k for k, v in AA_RES_TO_SYM.items()}
 
 AA_ONE_LETTER_CODES = set(AA_SYM_TO_RES)
@@ -21,8 +23,17 @@ DNA_RES_TO_SYM = {
     "DA": "A", "DG": "G", "DT": "T", "DC": "C"
 }
 
+DNA_TWO_LETTER_CODES = set(DNA_RES_TO_SYM)
+
 DNA_SYM_TO_RES = {v: k for k, v in DNA_RES_TO_SYM.items()}
 
 DNA_ONE_LETTER_CODES = set(DNA_SYM_TO_RES)
 
 RNA_RES_CODES = {"A", "G", "U", "C"}
+
+POLYMER_CODE_SETS = {
+    "polypeptide (L)": AA_THREE_LETTER_CODES,
+    "polypeptide (D)": DAA_RES_CODES,
+    "polydeoxyribonucleotide": DNA_TWO_LETTER_CODES,
+    "polyribonucleotide": RNA_RES_CODES,
+}

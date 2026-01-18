@@ -128,16 +128,16 @@ def pdb_atom_sample(pdb_structures_path, outpath="tests/data/pdb_atom_sample.txt
 if __name__ == '__main__':
 
     pdb_files = [filename.strip(".pdb") for filename in os.listdir("data/pdb")]
-    pdb_files.pop()
+    with open("./sample_pdb_ids.txt", "w") as file:
+        file.write("\n".join(pdb_files))
 
     # pdb_files = ["6LFE"]
 
     base_url = f"https://www.rcsb.org/fasta/entry/"
 
     structures, errors = download_structures(pdb_files,
-                                             target_fmt="{}",
-                                             save_fmt="{}.fasta",
-                                             outfolder="./data/fasta/",
-                                             base_url=base_url)
+                                             target_fmt="{}.pdb",
+                                             save_fmt="{}.pdb",
+                                             outfolder="./data/new_pdb/")
     print(errors)
 

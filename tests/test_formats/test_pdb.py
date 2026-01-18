@@ -16,10 +16,9 @@ PDB_STRUCTURES_FOLDER = pathlib.Path("tests/data/pdb")
 def test_atom():
 
     return Atom(
-        PolymerComponent("protein"),
         IndexComponent(1),
         NameComponent("N"),
-        AAResidueComponent("MET"),
+        ResidueComponent("MET"),
         ChainComponent("A"),
         ResIndexComponent(1),
         CoordXComponent(1),
@@ -28,6 +27,7 @@ def test_atom():
         OccupancyComponent(1),
         TemperatureFactorComponent(10),
         ElementComponent("N"),
+        PolymerComponent("polypeptide (L)")
         )
 
 
@@ -50,7 +50,7 @@ def test_pdb_line_write(test_atom):
     filename = TEST_FOLDER / "test.pdb"
     PDBFormat.to_file([test_atom],filename)
 
-    simple = "ATOM      1  N   MET A   1       1.000   1.000   1.000  1.00 10.00           N  \n"
+    simple = "ATOM      1  N   MET A   1       1.000   1.000   1.000  1.00 10.00           N  "
 
     with open(filename) as file:
         text = file.read()
@@ -65,7 +65,7 @@ def test_insufficient_data():
 
     atom = Atom(
         IndexComponent(1),
-        AAResidueComponent("MET"),
+        ResidueComponent("MET"),
         ChainComponent("A"),
         ResIndexComponent(1),
         # CoordXComponent(1),  Missing X-coordinate
@@ -78,7 +78,7 @@ def test_insufficient_data():
         PDBFormat.to_file([atom], "")
 
 
-def test_pdb_read_write(sample_size=10):
+def test_pdb_rwr(sample_size=100):
 
     """
     The write method conserves all information gathered by the read method.
@@ -93,21 +93,28 @@ def test_pdb_read_write(sample_size=10):
 
     pdb_files = random.sample(pdb_files, sample_size)
 
-    errors = []
+    mismatches = []
+    other_errors = []
 
-    try:
-        for filename in pdb_files:
-            atoms_original = PDBFormat.read_file(PDB_STRUCTURES_FOLDER / filename)
-            PDBFormat.to_file(atoms_original, test_filename)
-            atoms_new = PDBFormat.read_file(test_filename)
-            assert atoms_original == atoms_new
-    except AssertionError as ae:
-        raise ae
-    except Exception as e:
-        errors.append(str(e))
-    finally:
-        if os.path.exists(test_filename):
-            os.remove(test_filename)
-        if errors:
-            print(f"There were {len(errors)} other errors. First error:")
-            print(errors[0])
+    for filename in pdb_files:
+        try:
+            original = PDBFormat.read_file(PDB_STRUCTURES_FOLDER / filename)
+            PDBFormat.to_file(original, test_filename)
+            new = PDBFormat.read_file(test_filename)
+            assert original == new
+        except AssertionError as ae:
+            mismatches.append((filename, ae))
+        except Exception as e:
+            other_errors.append((filename, e))
+
+    if os.path.exists(test_filename):
+        os.remove(test_filename)
+
+    if mismatches:
+        filename, error = mismatches.pop()
+        print(f"There were {len(mismatches)} mismatches. First ({filename}):")
+        raise error
+
+    if other_errors:
+        filename, error = other_errors.pop()
+        print(f"There were {len(other_errors)} other errors. First ({filename}):\n{str(error)}")
