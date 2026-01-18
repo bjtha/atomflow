@@ -3,6 +3,8 @@ import pathlib
 
 import pytest
 
+from atomflow.atom import Atom
+from atomflow.components import *
 from atomflow.formats import CIFFormat
 
 TEST_FOLDER = pathlib.Path("tests/test_formats")
@@ -303,3 +305,50 @@ def test_full_dict_read_write():
         if os.path.exists(test_file_name):
             os.remove(test_file_name)
         print(f"There were {len(errors)} other errors:\n{"\n".join(errors)}")
+
+
+def test_atom_from_dict():
+
+    data = {
+        "_entity": {"id": "1",
+                    "pdbx_description": "protein",
+                    "type": "polymer"},
+        "_entity_poly": {"entity_id": "1",
+                         "type": "polypeptide (L)"},
+        "_atom_site": {"group_PDB": ["ATOM"],
+                       "id": ["1"],
+                       "type_symbol": ["C"],
+                       "label_atom_id": ["CA"],
+                       "label_alt_id": ["."],
+                       "label_comp_id": ["MET"],
+                       "label_asym_id": ["A"],
+                       "label_entity_id": ["1"],
+                       "label_seq_id": ["1"],
+                       "pdbx_PDB_ins_code": ["?"],
+                       "Cartn_x": ["1.000"],
+                       "Cartn_y": ["2.000"],
+                       "Cartn_z": ["3.000"],
+                       "occupancy": ["1.00"],
+                       "B_iso_or_equiv": ["10.00"],
+                       "pdbx_formal_charge": ["?"],
+                       "auth_asym_id": ["A"],
+                       },
+    }
+
+    atom = Atom(
+        IndexComponent(1),
+        ElementComponent("C"),
+        NameComponent("CA"),
+        ResidueComponent("MET"),
+        ChainComponent("A"),
+        ResIndexComponent(1),
+        CoordXComponent(1),
+        CoordYComponent(2),
+        CoordZComponent(3),
+        OccupancyComponent(1),
+        TemperatureFactorComponent(10),
+        EntityComponent("protein"),
+        PolymerComponent("polypeptide (L)"),
+    )
+
+    assert CIFFormat._atoms_from_dict(data) == [atom]

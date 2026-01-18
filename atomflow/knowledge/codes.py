@@ -3,12 +3,19 @@ AA_RES_TO_SYM = {
     "GLY": "G", "HIS": "H", "ILE": "I", "LYS": "K", "LEU": "L",
     "MET": "M", "ASN": "N", "PRO": "P", "GLN": "Q", "ARG": "R",
     "SER": "S", "THR": "T", "VAL": "V", "TRP": "W", "TYR": "Y",
-    "UNK": "X"
+    "UNK": "X", "SEC": "U", "PYL": "O", "ASX": "B", "GLX": "Z"
 }
 
 AA_SYM_TO_RES = {v: k for k, v in AA_RES_TO_SYM.items()}
 
 AA_ONE_LETTER_CODES = set(AA_SYM_TO_RES)
+
+DAA_RES_CODES = {
+    "DAL", "DAR", "DSG", "DAS", "DCY",
+    "DGN", "DGL", "DHI", "DIL", "DLE",
+    "DLY", "MED", "DPN", "DPR", "DSN",
+    "DTH", "DTR", "DTY", "DVA"
+}
 
 DNA_RES_TO_SYM = {
     "DA": "A", "DG": "G", "DT": "T", "DC": "C"

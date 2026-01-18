@@ -13,7 +13,6 @@ class CIFFormat(Format):
     recipe = {
         "and": [
             IndexAspect,
-            AltLocAspect,
             ChainAspect,
             NameAspect,
             ResNameAspect,
@@ -30,6 +29,7 @@ class CIFFormat(Format):
         "label_alt_id": AltLocComponent,
         "label_asym_id": ChainComponent,
         "label_atom_id": NameComponent,
+        "label_comp_id": ResidueComponent,
         "label_seq_id": ResIndexComponent,
         "type_symbol": ElementComponent,
         "Cartn_x": CoordXComponent,
@@ -43,47 +43,42 @@ class CIFFormat(Format):
 
     @classmethod
     def read_file(cls, path: str | os.PathLike) -> list[Atom]:
+        data = cls._extract_data(path, categories=("_entity", "_atom_site"))
+        return cls._atoms_from_dict(data)
 
-        tables = cls._extract_data(path, categories=("_entity", "_atom_site"))
+    @classmethod
+    def _atoms_from_dict(cls, data: dict) -> list[Atom]:
 
-        entity_table = tables["_entity"]
-        atom_table = tables["_atom_site"]
-
-        num_rows = len(atom_table["id"])
+        atom_table = data["_atom_site"]
+        entity_category = data["_entity"]
+        poly_category = data["_entity_poly"]
 
         atoms = []
+        entity_cmp_cache: dict[str, tuple] = {}
 
-        for atom_i in range(num_rows):
+        for atom_i in range(len(atom_table["id"])):
 
             cmps = []
-
             values = [col[atom_i] for col in atom_table.values()]
-            for field_name, value in zip(atom_table, values):
 
+            for field_name, value in zip(atom_table, values):
                 # Skip unknown/placeholder values
                 if value in "?.":
                     continue
-
-                # For cases with simple 1:1 mapping between data item (field) and component type
                 elif field_name in cls.field_cmp_mapping:
                     cmp_type = cls.field_cmp_mapping[field_name]
                     cmps.append(cmp_type(value))
-
-                elif field_name == "label_comp_id":
-                    if value in AA_RES_TO_SYM:
-                        cmps.append(AAResidueComponent(value))
-                    elif value in DNA_RES_TO_SYM:
-                        cmps.append(DNAResidueComponent(value))
-                    elif value in RNA_RES_CODES:
-                        cmps.append(RNAResidueComponent(value))
-                    else:
-                        cmps.append(ResidueComponent(value))
-
-                # Get entity name from table
                 elif field_name == "label_entity_id":
-                    entity_row = cls._get_row_by_id(entity_table, int(value))
-                    entity_name = entity_row["pdbx_description"]
-                    cmps.append(EntityComponent(entity_name))
+                    if cached_cmps := entity_cmp_cache.get(value):
+                        cmps.extend(cached_cmps)
+                    else:
+                        entity = cls._get_item_by_value(entity_category, field="id", value=value)
+                        entity_cmps = [EntityComponent(entity["pdbx_description"])]
+                        if entity["type"] == "polymer":
+                            polymer_item = cls._get_item_by_value(poly_category, field="entity_id", value=value)
+                            entity_cmps.append(PolymerComponent(polymer_item["type"]))
+                        entity_cmp_cache[value] = tuple(entity_cmps)
+                        cmps.extend(entity_cmps)
 
             atoms.append(Atom(*cmps))
 
@@ -205,22 +200,33 @@ class CIFFormat(Format):
         return tables
 
     @classmethod
-    def _get_row_by_id(cls, table: dict[str, list], id_) -> dict:
+    def _get_item_by_value(cls, category_data: dict[str, list | str], field: str, value: str) -> dict:
 
-        """Returns the row in the table which matches the given ID. Assumes that the table has a column
-        named 'id'."""
+        """Returns the data from a category where the field matches the given value. For tables, expects exactly one
+        matching row."""
 
         try:
-            id_col = table["id"]
+            item = category_data[field]
         except KeyError:
-            raise ValueError("Table has no ID column")
+            raise ValueError(f"Category has no field called '{field}'")
+        value = str(value)
 
-        id_ = str(id_)
-        if id_col.count(id_) > 1:
-            raise ValueError(f"More than one row in ID column with ID {id_}\n{id_col}")
+        if isinstance(item, list):
+            # Item is a column in a table
+            row_count = item.count(value)
+            if row_count > 1:
+                raise ValueError(f"More than one row with {field} == {value}.")
+            try:
+                row_num = item.index(value)
+            except ValueError:
+                raise ValueError(f"No row with {field} == {value}.")
+            return {k: v[row_num] for k, v in category_data.items()}
 
-        row_num = id_col.index(id_)
-        return {k: v[row_num] for k, v in table.items()}
+        elif isinstance(item, str):
+            # Item is a single value
+            if item != value:
+                raise ValueError(f"Category field {field} is {item}, not {value}")
+            return category_data
 
     @classmethod
     def _write_from_dict(cls, data: dict, path: str | os.PathLike) -> None:
