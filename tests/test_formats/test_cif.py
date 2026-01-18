@@ -6,7 +6,7 @@ import pytest
 from atomflow.formats import CIFFormat
 
 TEST_FOLDER = pathlib.Path("tests/test_formats")
-
+DATA_FOLDER = pathlib.Path("tests/data/cif")
 
 def test_extract_data_items():
 
@@ -275,3 +275,26 @@ def test_write_table():
     finally:
         if os.path.exists(file_name):
             os.remove(file_name)
+
+
+def test_full_dict_read_write():
+
+    test_file_name = TEST_FOLDER / "test.cif"
+    example_file_names = [f for f in os.listdir(DATA_FOLDER) if f.endswith(".cif")]
+
+    errors = []
+
+    try:
+        for file_name in example_file_names:
+            original = CIFFormat._extract_data(DATA_FOLDER / file_name)
+            CIFFormat._write_from_dict(original, test_file_name)
+            new = CIFFormat._extract_data(test_file_name)
+            assert original == new
+    except AssertionError as ae:
+        raise ae
+    except Exception as e:
+        errors.append(str(e))
+    finally:
+        if os.path.exists(test_file_name):
+            os.remove(test_file_name)
+        print(f"There were {len(errors)} other errors:\n{"\n".join(errors)}")

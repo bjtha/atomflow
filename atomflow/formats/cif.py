@@ -190,18 +190,16 @@ class CIFFormat(Format):
                     in_text_block = True
 
             elif in_table:
-                # This line is a row in a table
                 buffer += cls._split_line(line)
                 if len(buffer) < num_cols:
-                    # Table rows can run over multiple lines. If the number of values on this line is less
-                    # than the expected number of fields, aggregate with values from the next line.
+                    # Table rows can run over multiple lines. If the number of values is less
+                    # than the number of fields, roll them over to the next line.
                     continue
                 for field, value in zip(tables[cat], buffer, strict=True):
                     tables[cat][field].append(value)
                 buffer = []
 
             elif in_text_block:
-                # This line is in the middle of a text block
                 buffer.append(line)
 
         return tables
@@ -229,7 +227,6 @@ class CIFFormat(Format):
 
         lines = ["data_", "#"]
 
-        # For each key (category) in the dictionary:
         for category in data:
             fields = data[category]
             labels = [category + "." + f for f in fields]
@@ -242,7 +239,8 @@ class CIFFormat(Format):
                     if col_width + len(value) > WRAP_AT:
                         lines.extend([label] + cls._value_into_text_block(value, WRAP_AT))
                     else:
-                        lines.append(f"{label: <{col_width}}{value}")
+                        formatted = "'" + value + "'" if " " in value else value
+                        lines.append(f"{label: <{col_width}}{formatted}")
 
             elif all(isinstance(v, list) for v in fields.values()):
                 # This category is a table
@@ -265,8 +263,6 @@ class CIFFormat(Format):
                 for row in zip(*columns):
                     line = ""
                     for width, value in zip(widths, row):
-                        if len(value) > WRAP_AT:
-                            raise ValueError(f"Table value exceeds file width ({WRAP_AT}):\n{value}")
                         padded = f"{value: <{width + COLUMN_PADDING}}"
                         if len(line) + len(padded) > WRAP_AT:
                             lines.append(line.rstrip())
@@ -295,17 +291,13 @@ class CIFFormat(Format):
         break_ = 0
         i = 0
 
-        # Move cursor i along string value
         while i < len(value):
-            # When distance between where cursor began and current position == wrap boundary:
             if i-start == wrap_at:
                 if start == break_:
                     raise ValueError("Line is only whitespace")
-                # Increment break_ by one so that slicing includes the non-whitespace character it stopped at
+                # Increment break_ by 1 so that slicing includes the non-whitespace character it stopped at
                 break_ = break_+1
-                # Add the chunk between the start position and break point to lines
                 text_block_lines.append(value[start:break_])
-                # Update cursor position and start to break point
                 i = break_
                 start = break_
             if value[i] not in whitespace:
@@ -320,9 +312,4 @@ class CIFFormat(Format):
         return text_block_lines
 
 if __name__ == '__main__':
-    # data = CIFFormat._extract_data("../../tests/data/cif/1A52.cif")
-    # print(len(data["_entity_poly"]["pdbx_seq_one_letter_code"]))
-
-    val = "abcdefghi j"
-    block = CIFFormat._value_into_text_block(val, wrap_at=10)
-    print(block)
+    pass
