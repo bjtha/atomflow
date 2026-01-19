@@ -1,4 +1,5 @@
 import os
+from collections import defaultdict
 from typing import Iterable
 
 from atomflow.components import *
@@ -43,7 +44,7 @@ class CIFFormat(Format):
 
     @classmethod
     def read_file(cls, path: str | os.PathLike) -> list[Atom]:
-        data = cls._extract_data(path, categories=("_entity", "_atom_site"))
+        data = cls._extract_data(path, categories=("_entity", "_atom_site", "_entity_poly"))
         return cls._atoms_from_dict(data)
 
     @classmethod
@@ -133,7 +134,8 @@ class CIFFormat(Format):
         with open(path, "r") as file:
             lines = (ln.rstrip() for ln in file.readlines())
 
-        tables = {}
+        all_data = defaultdict(dict)
+        data = None
         in_table = False
         in_text_block = False
         cat = None
@@ -142,6 +144,9 @@ class CIFFormat(Format):
         num_cols = 0
 
         for line in lines:
+            if line.startswith("data_"):
+                data = all_data[line]
+
             if in_text_block and line[0] in "#_":
                 raise ValueError(f"Unexpected end of text block on line:\n{line}")
 
@@ -160,11 +165,11 @@ class CIFFormat(Format):
                 if categories and cat not in categories:
                     in_table = False
                 elif in_table:
-                    tables.setdefault(cat, dict())[field] = []
-                    num_cols = len(tables[cat])
+                    data.setdefault(cat, dict())[field] = []
+                    num_cols = len(data[cat])
                 # Otherwise, treat as a data item
                 elif num_parts == 2:
-                    tables.setdefault(cat, dict())[field] = parts[1]
+                    data.setdefault(cat, dict())[field] = parts[1]
                 elif num_parts > 2:
                     raise ValueError(f"Too many data items on line, expected 2 or fewer:\n{line}")
 
@@ -177,7 +182,7 @@ class CIFFormat(Format):
                 # Tell the difference by checking if lines have been accumulated.
                 if buffer:
                     item = "".join(buffer)
-                    tables.setdefault(cat, dict())[field] = item
+                    data.setdefault(cat, dict())[field] = item
                     in_text_block = False
                     buffer = []
                 else:
@@ -190,14 +195,14 @@ class CIFFormat(Format):
                     # Table rows can run over multiple lines. If the number of values is less
                     # than the number of fields, roll them over to the next line.
                     continue
-                for field, value in zip(tables[cat], buffer, strict=True):
-                    tables[cat][field].append(value)
+                for field, value in zip(data[cat], buffer, strict=True):
+                    data[cat][field].append(value)
                 buffer = []
 
             elif in_text_block:
                 buffer.append(line)
 
-        return tables
+        return all_data
 
     @classmethod
     def _get_item_by_value(cls, category_data: dict[str, list | str], field: str, value: str) -> dict:
@@ -229,57 +234,72 @@ class CIFFormat(Format):
             return category_data
 
     @classmethod
+    def _atoms_to_dict(cls, atoms: Iterable[Atom]) -> dict:
+
+        data = {}
+
+        # _atom_type
+        #   .symbol - Each unique element
+
+        # _chem_comp
+
+        return data
+
+    @classmethod
     def _write_from_dict(cls, data: dict, path: str | os.PathLike) -> None:
 
-        lines = ["data_", "#"]
+        lines = []
 
-        for category in data:
-            fields = data[category]
-            labels = [category + "." + f for f in fields]
+        for header, dataset in data.items():
+            lines.extend([header, "#"])
 
-            if all(isinstance(v, str) for v in fields.values()):
-                # This category contains single label:value pairs
-                col_width = max(map(len, labels)) + COLUMN_PADDING
-                for item, value in fields.items():
-                    label = category + "." + item
-                    if col_width + len(value) > WRAP_AT:
-                        lines.extend([label] + cls._value_into_text_block(value, WRAP_AT))
-                    else:
-                        formatted = "'" + value + "'" if " " in value else value
-                        lines.append(f"{label: <{col_width}}{formatted}")
+            for category in dataset:
+                fields = dataset[category]
+                labels = [category + "." + f for f in fields]
 
-            elif all(isinstance(v, list) for v in fields.values()):
-                # This category is a table
-                lines.append("loop_")
-                columns = []
-                widths = []
-                for item, values in data[category].items():
-                    label = category + "." + item
-                    lines.append(label)
-                    col = []
-                    max_width = 0
-                    for v in values:
-                        # Surround strings containing spaces with quotes
-                        formatted = "'" + v + "'" if " " in v else v
-                        col.append(formatted)
-                        max_width = max(max_width, len(formatted))
-                    widths.append(max_width)
-                    columns.append(col)
-
-                for row in zip(*columns):
-                    line = ""
-                    for width, value in zip(widths, row):
-                        padded = f"{value: <{width + COLUMN_PADDING}}"
-                        if len(line) + len(padded) > WRAP_AT:
-                            lines.append(line.rstrip())
-                            line = padded
+                if all(isinstance(v, str) for v in fields.values()):
+                    # This category contains single label:value pairs
+                    col_width = max(map(len, labels)) + COLUMN_PADDING
+                    for item, value in fields.items():
+                        label = category + "." + item
+                        if col_width + len(value) > WRAP_AT:
+                            lines.extend([label] + cls._value_into_text_block(value, WRAP_AT))
                         else:
-                            line += padded
-                    lines.append(line.rstrip())
+                            formatted = "'" + value + "'" if " " in value else value
+                            lines.append(f"{label: <{col_width}}{formatted}")
 
-            else:
-                raise ValueError(f"Unexpected field value types. Must be <str> or <list>.")
-            lines.append("#")
+                elif all(isinstance(v, list) for v in fields.values()):
+                    # This category is a table
+                    lines.append("loop_")
+                    columns = []
+                    widths = []
+                    for item, values in dataset[category].items():
+                        label = category + "." + item
+                        lines.append(label)
+                        col = []
+                        max_width = 0
+                        for v in values:
+                            # Surround strings containing spaces with quotes
+                            formatted = "'" + v + "'" if " " in v else v
+                            col.append(formatted)
+                            max_width = max(max_width, len(formatted))
+                        widths.append(max_width)
+                        columns.append(col)
+
+                    for row in zip(*columns):
+                        line = ""
+                        for width, value in zip(widths, row):
+                            padded = f"{value: <{width + COLUMN_PADDING}}"
+                            if len(line) + len(padded) > WRAP_AT:
+                                lines.append(line.rstrip())
+                                line = padded
+                            else:
+                                line += padded
+                        lines.append(line.rstrip())
+
+                else:
+                    raise ValueError(f"Unexpected field value types. Must be <str> or <list>.")
+                lines.append("#")
 
         with open(path, "w") as file:
             file.write("\n".join(lines))

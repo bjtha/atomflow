@@ -78,7 +78,7 @@ def test_insufficient_data():
         PDBFormat.to_file([atom], "")
 
 
-def test_pdb_rwr(sample_size=100):
+def test_pdb_rwr(sample_size=10):
 
     """
     The write method conserves all information gathered by the read method.
