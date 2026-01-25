@@ -1,5 +1,6 @@
 import os
 import pathlib
+import random
 
 import pytest
 
@@ -9,6 +10,24 @@ from atomflow.formats import CIFFormat
 
 TEST_FOLDER = pathlib.Path("tests/test_formats")
 DATA_FOLDER = pathlib.Path("tests/data/cif")
+
+@pytest.fixture
+def example_atom() -> Atom:
+
+    return Atom(
+        SectionComponent("ATOM"),
+        IndexComponent(1),
+        ElementComponent("C"),
+        NameComponent("CA"),
+        ResidueComponent("MET"),
+        ChainComponent("A"),
+        ResIndexComponent(1),
+        CoordXComponent(1),
+        CoordYComponent(2),
+        CoordZComponent(3),
+        OccupancyComponent(1),
+        TemperatureFactorComponent(10),
+    )
 
 def test_extract_data_items():
 
@@ -280,11 +299,11 @@ def test_write_table():
         "_info.count",
         "_info.description",
         "A 30",
-        "'red and bouncy'",
+        '"red and bouncy"',
         "B 2",
-        "'A leafy plant in a lime-green pot, with a pair of tall, defiant white flowers'",
+        '"A leafy plant in a lime-green pot, with a pair of tall, defiant white flowers"',
         "C 1",
-        "'soft and sticky'",
+        '"soft and sticky"',
         "#"
     ])
 
@@ -385,48 +404,92 @@ def test_full_dict_read_write():
         print(f"There were {len(errors)} other errors:\n{"\n".join(errors)}")
 
 
-def test_atom_from_dict():
+def test_atom_from_dict(example_atom):
 
     data = {
-        "_entity": {"id": "1",
-                    "pdbx_description": "protein",
-                    "type": "polymer"},
-        "_entity_poly": {"entity_id": "1",
-                         "type": "polypeptide (L)"},
-        "_atom_site": {"group_PDB": ["ATOM"],
-                       "id": ["1"],
-                       "type_symbol": ["C"],
-                       "label_atom_id": ["CA"],
-                       "label_alt_id": ["."],
-                       "label_comp_id": ["MET"],
-                       "label_asym_id": ["A"],
-                       "label_entity_id": ["1"],
-                       "label_seq_id": ["1"],
-                       "pdbx_PDB_ins_code": ["?"],
-                       "Cartn_x": ["1.000"],
-                       "Cartn_y": ["2.000"],
-                       "Cartn_z": ["3.000"],
-                       "occupancy": ["1.00"],
-                       "B_iso_or_equiv": ["10.00"],
-                       "pdbx_formal_charge": ["?"],
-                       "auth_asym_id": ["A"],
-                       },
+        "data_": {
+            "_atom_site":
+                {"group_PDB": ["ATOM"],
+                 "id": ["1"],
+                 "type_symbol": ["C"],
+                 "label_atom_id": ["CA"],
+                 "label_alt_id": ["."],
+                 "label_comp_id": ["MET"],
+                 "label_asym_id": ["A"],
+                 "label_seq_id": ["1"],
+                 "pdbx_PDB_ins_code": ["?"],
+                 "Cartn_x": ["1.000"],
+                 "Cartn_y": ["2.000"],
+                 "Cartn_z": ["3.000"],
+                 "occupancy": ["1.00"],
+                 "B_iso_or_equiv": ["10.00"],
+                 "pdbx_formal_charge": ["?"],
+                 "auth_asym_id": ["A"],
+            }
+        }
     }
 
-    atom = Atom(
-        IndexComponent(1),
-        ElementComponent("C"),
-        NameComponent("CA"),
-        ResidueComponent("MET"),
-        ChainComponent("A"),
-        ResIndexComponent(1),
-        CoordXComponent(1),
-        CoordYComponent(2),
-        CoordZComponent(3),
-        OccupancyComponent(1),
-        TemperatureFactorComponent(10),
-        EntityComponent("protein"),
-        PolymerComponent("polypeptide (L)"),
-    )
+    assert CIFFormat._atoms_from_dict(data) == [example_atom]
 
-    assert CIFFormat._atoms_from_dict(data) == [atom]
+def test_dict_from_atom(example_atom):
+
+    data = {"_atom_site":
+                {"group_PDB": ["ATOM"],
+                 "id": ["1"],
+                 "type_symbol": ["C"],
+                 "label_atom_id": ["CA"],
+                 "label_alt_id": ["?"],
+                 "label_comp_id": ["MET"],
+                 "label_asym_id": ["A"],
+                 "label_seq_id": ["1"],
+                 "pdbx_PDB_ins_code": ["?"],
+                 "Cartn_x": ["1.0"],
+                 "Cartn_y": ["2.0"],
+                 "Cartn_z": ["3.0"],
+                 "occupancy": ["1.0"],
+                 "B_iso_or_equiv": ["10.0"],
+                 "pdbx_formal_charge": ["?"],
+                 "auth_asym_id": ["A"],
+                 }
+            }
+
+    assert CIFFormat._atoms_to_dict([example_atom]) == data
+
+def test_full_atom_read_write(sample_size=100):
+
+    """Read and write, to atoms and back to file, are consistent."""
+
+    test_filename = TEST_FOLDER / "test.cif"
+    example_file_names = [f for f in os.listdir(DATA_FOLDER) if f.endswith(".cif")]
+
+    cif_files = random.sample(example_file_names, sample_size)
+
+    mismatches = []
+    other_errors = []
+    pass_count = 0
+
+    for filename in cif_files:
+        try:
+            original = CIFFormat.read_file(DATA_FOLDER / filename)
+            CIFFormat.to_file(original, test_filename)
+            new = CIFFormat.read_file(test_filename)
+            assert original == new
+            pass_count += 1
+        except AssertionError as ae:
+            mismatches.append((filename, ae))
+        except Exception as e:
+            other_errors.append((filename, e))
+
+    if os.path.exists(test_filename):
+        os.remove(test_filename)
+
+    print(f"{pass_count = }")
+
+    if mismatches:
+        filename, error = mismatches.pop()
+        print(f"There were {len(mismatches)+1} mismatches. First ({filename}):")
+        raise error
+
+    if other_errors:
+        filename, error = other_errors.pop()
+        print(f"There were {len(other_errors)} other errors. First ({filename}):\n{str(error)}")

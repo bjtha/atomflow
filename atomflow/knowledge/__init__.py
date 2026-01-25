@@ -6,4 +6,5 @@ from atomflow.knowledge.codes import (
     RNA_RES_CODES,
     DNA_ONE_LETTER_CODES,
     AA_ONE_LETTER_CODES,
+    POLYMER_CODE_SETS,
 )

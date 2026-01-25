@@ -343,6 +343,16 @@ class RNAResidueComponent(Component):
     def polymer(self) -> str:
         return "rna"
 
+@cache_instances
+@aspects(SectionAspect)
+class SectionComponent(Component):
+
+    def __init__(self, section):
+        self._section = str(section)
+
+    @property
+    def section(self) -> str:
+        return self._section
 
 @cache_instances
 @aspects(TemperatureFactorAspect)

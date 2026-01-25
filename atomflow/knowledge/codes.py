@@ -32,8 +32,8 @@ DNA_ONE_LETTER_CODES = set(DNA_SYM_TO_RES)
 RNA_RES_CODES = {"A", "G", "U", "C"}
 
 POLYMER_CODE_SETS = {
-    "polypeptide (L)": AA_THREE_LETTER_CODES,
-    "polypeptide (D)": DAA_RES_CODES,
+    "polypeptide(L)": AA_THREE_LETTER_CODES,
+    "polypeptide(D)": DAA_RES_CODES,
     "polydeoxyribonucleotide": DNA_TWO_LETTER_CODES,
     "polyribonucleotide": RNA_RES_CODES,
 }

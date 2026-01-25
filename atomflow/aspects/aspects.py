@@ -45,6 +45,7 @@ OccupancyAspect = Aspect("occupancy")  # Fractional occupancy of the atom in thi
 PositionAspect = Aspect("position")  # Position of the atom in the molecule or relative to the backbone
 TemperatureFactorAspect = Aspect("temp_f") # Atom's isotropic temperature factor
 FormalChargeAspect = Aspect("fcharge")  # Atom's formal charge, e.g. -1, 0, +1
+SectionAspect = Aspect("section")  # ATOM or HETATM label
 
 # Residue
 ResNameAspect = Aspect("resname")  # Name of the residue the atom is part of

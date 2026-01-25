@@ -1,10 +1,12 @@
-import os
+import pathlib
 from collections import defaultdict
+import os
 from typing import Iterable
 
 from atomflow.components import *
 from atomflow.atom import Atom
 from atomflow.formats import Format
+from atomflow.knowledge import AA_RES_TO_SYM
 
 COLUMN_PADDING = 1
 WRAP_AT = 80
@@ -17,15 +19,17 @@ class CIFFormat(Format):
             ChainAspect,
             NameAspect,
             ResNameAspect,
-            EntityAspect,
-            ResIndexAspect,
             ElementAspect,
+            CoordXAspect,
+            CoordYAspect,
+            CoordZAspect,
         ]
     }
 
     extensions = (".cif", ".mmcif")
 
-    field_cmp_mapping = {
+    _cmp_map = {
+        "group_PDB": SectionComponent,
         "id": IndexComponent,
         "label_alt_id": AltLocComponent,
         "label_asym_id": ChainComponent,
@@ -40,54 +44,70 @@ class CIFFormat(Format):
         "pdbx_PDB_ins_code": InsertionComponent,
         "B_iso_or_equiv": TemperatureFactorComponent,
         "pdbx_formal_charge": FormalChargeComponent,
+        "auth_asym_id": ChainComponent,
+    }
+
+    _asp_map = {
+        "group_PDB": SectionAspect,
+        "id": IndexAspect,
+        "label_alt_id": AltLocAspect,
+        "label_asym_id": ChainAspect,
+        "label_atom_id": NameAspect,
+        "label_comp_id": ResNameAspect,
+        "label_seq_id": ResIndexAspect,
+        "type_symbol": ElementAspect,
+        "Cartn_x": CoordXAspect,
+        "Cartn_y": CoordYAspect,
+        "Cartn_z": CoordZAspect,
+        "occupancy": OccupancyAspect,
+        "pdbx_PDB_ins_code": InsertionAspect,
+        "B_iso_or_equiv": TemperatureFactorAspect,
+        "pdbx_formal_charge": FormalChargeAspect,
+        "auth_asym_id": ChainAspect,
+    }
+
+    _field_formats = {
+        "id": "{}",
+        "label_seq_id": "{}",
+        "Cartn_x": "{:.3f}",
+        "Cartn_y": "{:.3f}",
+        "Cartn_z": "{:.3f}",
+        "occupancy": "{:.2f}",
+        "B_iso_or_equiv": "{:.2f}",
     }
 
     @classmethod
     def read_file(cls, path: str | os.PathLike) -> list[Atom]:
-        data = cls._extract_data(path, categories=("_entity", "_atom_site", "_entity_poly"))
+        data = cls._extract_data(path, categories=("_atom_site",))
         return cls._atoms_from_dict(data)
 
     @classmethod
     def _atoms_from_dict(cls, data: dict) -> list[Atom]:
 
-        atom_table = data["_atom_site"]
-        entity_category = data["_entity"]
-        poly_category = data["_entity_poly"]
-
         atoms = []
-        entity_cmp_cache: dict[str, tuple] = {}
 
-        for atom_i in range(len(atom_table["id"])):
-
-            cmps = []
-            values = [col[atom_i] for col in atom_table.values()]
-
-            for field_name, value in zip(atom_table, values):
-                # Skip unknown/placeholder values
-                if value in "?.":
-                    continue
-                elif field_name in cls.field_cmp_mapping:
-                    cmp_type = cls.field_cmp_mapping[field_name]
-                    cmps.append(cmp_type(value))
-                elif field_name == "label_entity_id":
-                    if cached_cmps := entity_cmp_cache.get(value):
-                        cmps.extend(cached_cmps)
-                    else:
-                        entity = cls._get_item_by_value(entity_category, field="id", value=value)
-                        entity_cmps = [EntityComponent(entity["pdbx_description"])]
-                        if entity["type"] == "polymer":
-                            polymer_item = cls._get_item_by_value(poly_category, field="entity_id", value=value)
-                            entity_cmps.append(PolymerComponent(polymer_item["type"]))
-                        entity_cmp_cache[value] = tuple(entity_cmps)
-                        cmps.extend(entity_cmps)
-
-            atoms.append(Atom(*cmps))
+        for dataset in data.values():
+            atom_table = dataset["_atom_site"]
+            for atom_i in range(len(atom_table["id"])):
+                cmps = []
+                values = [col[atom_i] for col in atom_table.values()]
+                for field_name, value in zip(atom_table, values):
+                    # Skip unknown/placeholder values
+                    if value in "?.":
+                        continue
+                    elif field_name in cls._cmp_map:
+                        cmp_type = cls._cmp_map[field_name]
+                        cmps.append(cmp_type(value))
+                atoms.append(Atom(*cmps))
 
         return atoms
 
     @classmethod
     def to_file(cls, atoms: Iterable[Atom], path: str | os.PathLike) -> None:
-        pass
+        path = pathlib.Path(path)
+        header = path.name.rstrip(path.suffix)
+        data = {f"data_{header}": cls._atoms_to_dict(atoms)}
+        cls._write_from_dict(data, path)
 
     @staticmethod
     def _split_line(line: str) -> list[str]:
@@ -98,33 +118,32 @@ class CIFFormat(Format):
         >>> assert CIFFormat._split_line(ln) == ["foo", "hello world", "bar"]
         """
 
-        parts = []
-        chars = ""
-        quote = []
+        words = []
+        buffer = ''
+
+        dquote = False
+        squote = False
 
         for char in line:
-            if char in ('"', "'"):
-                if not quote:
-                    quote.append(char)
+            if char == '"':
+                dquote = not dquote
+                continue
+            elif char == "'":
+                if not dquote:
+                    squote = not squote
                     continue
-                elif char in quote:
-                    quote.remove(char)
+            if char in (" ", "\t"):
+                if not buffer:
                     continue
-            elif char == " ":
-                if not chars:
-                    # Skip consecutive whitespace
+                if not (dquote or squote):
+                    words.append(buffer)
+                    buffer = ''
                     continue
-                if not quote:
-                    # If outside of quote marks, treat the space as a splitting point
-                    parts.append(chars)
-                    chars = ''
-                    continue
-            chars += char
+            buffer += char
+        if buffer:
+            words.append(buffer)
 
-        # Add the final word
-        parts.append(chars)
-
-        return parts
+        return words
 
     @classmethod
     def _extract_data(cls, path: str | os.PathLike, categories: None | Iterable[str] = None) -> dict:
@@ -135,7 +154,7 @@ class CIFFormat(Format):
             lines = (ln.rstrip() for ln in file.readlines())
 
         all_data = defaultdict(dict)
-        data = None
+        block = None
         in_table = False
         in_text_block = False
         cat = None
@@ -145,7 +164,7 @@ class CIFFormat(Format):
 
         for line in lines:
             if line.startswith("data_"):
-                data = all_data[line]
+                block = all_data[line]
 
             if in_text_block and line[0] in "#_":
                 raise ValueError(f"Unexpected end of text block on line:\n{line}")
@@ -165,11 +184,11 @@ class CIFFormat(Format):
                 if categories and cat not in categories:
                     in_table = False
                 elif in_table:
-                    data.setdefault(cat, dict())[field] = []
-                    num_cols = len(data[cat])
+                    block.setdefault(cat, dict())[field] = []
+                    num_cols = len(block[cat])
                 # Otherwise, treat as a data item
                 elif num_parts == 2:
-                    data.setdefault(cat, dict())[field] = parts[1]
+                    block.setdefault(cat, dict())[field] = parts[1]
                 elif num_parts > 2:
                     raise ValueError(f"Too many data items on line, expected 2 or fewer:\n{line}")
 
@@ -182,7 +201,7 @@ class CIFFormat(Format):
                 # Tell the difference by checking if lines have been accumulated.
                 if buffer:
                     item = "".join(buffer)
-                    data.setdefault(cat, dict())[field] = item
+                    block.setdefault(cat, dict())[field] = item
                     in_text_block = False
                     buffer = []
                 else:
@@ -195,8 +214,8 @@ class CIFFormat(Format):
                     # Table rows can run over multiple lines. If the number of values is less
                     # than the number of fields, roll them over to the next line.
                     continue
-                for field, value in zip(data[cat], buffer, strict=True):
-                    data[cat][field].append(value)
+                for field, value in zip(block[cat], buffer, strict=True):
+                    block[cat][field].append(value)
                 buffer = []
 
             elif in_text_block:
@@ -236,12 +255,21 @@ class CIFFormat(Format):
     @classmethod
     def _atoms_to_dict(cls, atoms: Iterable[Atom]) -> dict:
 
-        data = {}
+        data = {"_atom_site": {}}
 
-        # _atom_type
-        #   .symbol - Each unique element
+        for atom in atoms:
 
-        # _chem_comp
+            if not atom.implements(cls.recipe):
+                raise ValueError(f"Cannot convert atom to CIF format:\n{atom}")
+
+            for field, asp in cls._asp_map.items():
+                if atom.implements(asp):
+                    value = atom.get(asp)
+                elif field == "group_PDB":
+                    value = "ATOM" if atom.resname in AA_RES_TO_SYM else "HETATM"
+                else:
+                    value = '?'
+                data["_atom_site"].setdefault(field, []).append(str(value))
 
         return data
 
@@ -265,7 +293,7 @@ class CIFFormat(Format):
                         if col_width + len(value) > WRAP_AT:
                             lines.extend([label] + cls._value_into_text_block(value, WRAP_AT))
                         else:
-                            formatted = "'" + value + "'" if " " in value else value
+                            formatted = "'" + value + "'" if " " in value or "'" in value else value
                             lines.append(f"{label: <{col_width}}{formatted}")
 
                 elif all(isinstance(v, list) for v in fields.values()):
@@ -280,7 +308,7 @@ class CIFFormat(Format):
                         max_width = 0
                         for v in values:
                             # Surround strings containing spaces with quotes
-                            formatted = "'" + v + "'" if " " in v else v
+                            formatted = '"' + v + '"' if " " in v or "'" in v else v
                             col.append(formatted)
                             max_width = max(max_width, len(formatted))
                         widths.append(max_width)

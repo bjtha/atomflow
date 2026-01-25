@@ -45,6 +45,7 @@ class PDBFormat(Format):
     }
 
     _cmp_map = {
+        "section": SectionComponent,
         "serial_no": IndexComponent,
         "atom_name": NameComponent,
         "alt_loc": AltLocComponent,
@@ -62,6 +63,7 @@ class PDBFormat(Format):
     }
 
     _asp_map = {
+        "section": SectionAspect,
         "serial_no": IndexAspect,
         "atom_name": NameAspect,
         "alt_loc": AltLocAspect,
