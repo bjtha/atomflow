@@ -105,7 +105,7 @@ class CIFFormat(Format):
     @classmethod
     def to_file(cls, atoms: Iterable[Atom], path: str | os.PathLike) -> None:
         path = pathlib.Path(path)
-        header = path.name.rstrip(path.suffix)
+        header = path.name[:-len(path.suffix)]
         data = {f"data_{header}": cls._atoms_to_dict(atoms)}
         cls._write_from_dict(data, path)
 

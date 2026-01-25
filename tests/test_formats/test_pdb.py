@@ -16,6 +16,7 @@ PDB_STRUCTURES_FOLDER = pathlib.Path("tests/data/pdb")
 def test_atom():
 
     return Atom(
+        SectionComponent("ATOM"),
         IndexComponent(1),
         NameComponent("N"),
         ResidueComponent("MET"),
@@ -27,7 +28,7 @@ def test_atom():
         OccupancyComponent(1),
         TemperatureFactorComponent(10),
         ElementComponent("N"),
-        PolymerComponent("polypeptide (L)")
+        PolymerComponent("polypeptide(L)")
         )
 
 

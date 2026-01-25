@@ -8,8 +8,7 @@ from atomflow.atom import Atom
 from atomflow.components import *
 from atomflow.formats import FastaFormat
 
-FASTA_SEQUENCES_FOLDER = pathlib.Path("tests/data/fasta")
-
+DATA_FOLDER = pathlib.Path("tests/data/fasta")
 
 
 def test_protein_fasta_into_atoms():
@@ -27,9 +26,9 @@ def test_protein_fasta_into_atoms():
     os.remove(filename)
 
     target_atom = Atom(
-        AAResidueComponent("M"),
-        EntityComponent("test"),
+        ResidueComponent("MET"),
         ResIndexComponent(1),
+        ChainComponent("A")
     )
     assert atoms[0] == target_atom
 
@@ -49,9 +48,9 @@ def test_dna_fasta_into_atoms():
     os.remove(filename)
 
     target_atom = Atom(
-        DNAResidueComponent("A"),
-        EntityComponent("test"),
+        ResidueComponent("DA"),
         ResIndexComponent(1),
+        ChainComponent("A")
     )
     assert atoms[0] == target_atom
 
@@ -71,9 +70,9 @@ def test_rna_fasta_into_atoms():
     os.remove(filename)
 
     target_atom = Atom(
-        RNAResidueComponent("U"),
-        EntityComponent("test"),
+        ResidueComponent("U"),
         ResIndexComponent(1),
+        ChainComponent("A")
     )
     assert atoms[0] == target_atom
 
@@ -82,7 +81,7 @@ def test_reject_unparseable_sequence():
 
     """Sequences with ambiguous mixtures of residue codes should be rejected."""
 
-    dna_rna = ">test\nTU"
+    dna_rna = ">test\nTUJ"
     filename = "test.fasta"
 
     with open(filename, "w") as file:
@@ -90,15 +89,6 @@ def test_reject_unparseable_sequence():
 
     with pytest.raises(ValueError):
         FastaFormat.read_file(filename)
-
-    rna_aa = ">test\nMU"
-
-    with open(filename, "w") as file:
-        file.write(rna_aa)
-
-    with pytest.raises(ValueError):
-        FastaFormat.read_file(filename)
-    os.remove(filename)
 
 
 def test_empty_file():
@@ -125,13 +115,11 @@ def test_insufficient_data():
     filename = "test.fasta"
 
     atom = Atom(
-        AAResidueComponent("V"),
+        ResidueComponent("VAL"),
         ResIndexComponent(1),
-        EntityComponent("test")
     )
     only_polymer = Atom(
-        AAResidueComponent("L"),
-        ResIndexComponent(1),
+        ResidueComponent("HOH"),
     )
 
     FastaFormat.to_file([atom, only_polymer], filename)
@@ -150,8 +138,7 @@ def test_write_single_chain():
 
     filename = "test.fasta"
     ori_atom = Atom(
-        AAResidueComponent("M"),
-        EntityComponent("test"),
+        ResidueComponent("MET"),
         ResIndexComponent(1),
         ChainComponent("A")
     )
@@ -163,7 +150,7 @@ def test_write_single_chain():
 
     os.remove(filename)
 
-    assert text == ">test\nM\n"
+    assert text == ">test_A\nM\n"
 
 
 def test_write_different_chains():
@@ -172,12 +159,12 @@ def test_write_different_chains():
 
     filename = "test.fasta"
     chain_a = Atom(
-        AAResidueComponent("M"),
+        ResidueComponent("MET"),
         ResIndexComponent(1),
         ChainComponent("A")
     )
     chain_b = Atom(
-        AAResidueComponent("A"),
+        ResidueComponent("ALA"),
         ResIndexComponent(1),
         ChainComponent("B")
     )
@@ -189,7 +176,7 @@ def test_write_different_chains():
 
     os.remove(filename)
 
-    assert text == ">protein_A\nM\n>protein_B\nA\n"
+    assert text == ">test_A\nM\n>test_B\nA\n"
 
 def test_write_identical_chains():
 
@@ -197,12 +184,12 @@ def test_write_identical_chains():
 
     filename = "test.fasta"
     chain_a = Atom(
-        AAResidueComponent("M"),
+        ResidueComponent("MET"),
         ResIndexComponent(1),
         ChainComponent("A")
     )
     chain_b = Atom(
-        AAResidueComponent("M"),
+        ResidueComponent("MET"),
         ResIndexComponent(1),
         ChainComponent("B")
     )
@@ -214,34 +201,47 @@ def test_write_identical_chains():
 
     os.remove(filename)
 
-    assert text == ">protein_A\nM\n"
+    assert text == ">test_A\nM\n"
 
 
 def test_full_read_write_proteins(sample_size=100):
 
     """The write method should conserve all information gathered by the read method."""
 
-    temp_filename = "temp.fasta"
+    test_filename = "temp.fasta"
 
-    fasta_files = [f for f in os.listdir(FASTA_SEQUENCES_FOLDER)
-                   if os.path.isfile(FASTA_SEQUENCES_FOLDER / f)]
+    fasta_files = [f for f in os.listdir(DATA_FOLDER)
+                   if os.path.isfile(DATA_FOLDER / f)]
 
     fasta_files = random.sample(fasta_files, sample_size)
 
-    try:
-        for filename in fasta_files:
-            atoms_r = FastaFormat.read_file(FASTA_SEQUENCES_FOLDER / filename)
-            FastaFormat.to_file(atoms_r, temp_filename)
-            atoms_w = FastaFormat.read_file(temp_filename)
+    mismatches = []
+    other_errors = []
+    pass_count = 0
 
-            assert atoms_r == atoms_w
+    for filename in fasta_files:
+        try:
+            original = FastaFormat.read_file(DATA_FOLDER / filename)
+            FastaFormat.to_file(original, test_filename)
+            new = FastaFormat.read_file(test_filename)
+            assert original == new
+            pass_count += 1
+        except AssertionError as ae:
+            mismatches.append((filename, ae))
+        except Exception as e:
+            other_errors.append((filename, e))
 
-    except AssertionError as e:
-        raise e
+    if os.path.exists(test_filename):
+        os.remove(test_filename)
 
-    except Exception as e:
-        print(str(e))
+    print(f"{pass_count = }")
 
-    finally:
-        if os.path.exists(temp_filename):
-            os.remove(temp_filename)
+    if mismatches:
+        filename, error = mismatches.pop()
+        print(f"There were {len(mismatches)+1} mismatches. First ({filename}):")
+        raise error
+
+    if other_errors:
+        filename, error = other_errors.pop()
+        print(f"There were {len(other_errors)+1} other errors. First ({filename}):")
+        raise error

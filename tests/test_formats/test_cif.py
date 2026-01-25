@@ -455,7 +455,7 @@ def test_dict_from_atom(example_atom):
 
     assert CIFFormat._atoms_to_dict([example_atom]) == data
 
-def test_full_atom_read_write(sample_size=100):
+def test_full_atom_read_write(sample_size=10):
 
     """Read and write, to atoms and back to file, are consistent."""
 

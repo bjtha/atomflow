@@ -29,7 +29,9 @@ DNA_SYM_TO_RES = {v: k for k, v in DNA_RES_TO_SYM.items()}
 
 DNA_ONE_LETTER_CODES = set(DNA_SYM_TO_RES)
 
-RNA_RES_CODES = {"A", "G", "U", "C"}
+RNA_SYM_TO_RES = {"A": "A", "G": "G", "U": "U", "C": "C"}
+
+RNA_RES_CODES = set(RNA_SYM_TO_RES)
 
 POLYMER_CODE_SETS = {
     "polypeptide(L)": AA_THREE_LETTER_CODES,
