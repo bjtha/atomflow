@@ -28,7 +28,6 @@ def test_atom():
         OccupancyComponent(1),
         TemperatureFactorComponent(10),
         ElementComponent("N"),
-        PolymerComponent("polypeptide(L)")
         )
 
 

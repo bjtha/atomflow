@@ -39,3 +39,5 @@ POLYMER_CODE_SETS = {
     "polydeoxyribonucleotide": DNA_TWO_LETTER_CODES,
     "polyribonucleotide": RNA_RES_CODES,
 }
+
+POLYMER_RESIDUE_CODES = set([code for group in POLYMER_CODE_SETS.values() for code in group])

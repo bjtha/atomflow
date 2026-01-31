@@ -14,15 +14,15 @@ def example_atoms() -> list[Atom]:
 
     atom1 = Atom(IndexComponent(1), ElementComponent("C"), AAResidueComponent("MET"), ChainComponent("A"),
                  ResIndexComponent(1), CoordXComponent(1.0), CoordYComponent(1.0), CoordZComponent(1.0),
-                 OccupancyComponent(1), TemperatureFactorComponent(0), NameComponent("C"))
+                 OccupancyComponent(1), TemperatureFactorComponent(0), NameComponent("C"), SectionComponent("ATOM"))
 
     atom2 = Atom(IndexComponent(2), ElementComponent("N"), AAResidueComponent("GLU"), ChainComponent("B"),
                  ResIndexComponent(2), CoordXComponent(2.0), CoordYComponent(2.0), CoordZComponent(2.0),
-                 OccupancyComponent(1), TemperatureFactorComponent(0), NameComponent("N"))
+                 OccupancyComponent(1), TemperatureFactorComponent(0), NameComponent("N"), SectionComponent("ATOM"))
 
     atom3 = Atom(IndexComponent(3), ElementComponent("O"), AAResidueComponent("HIS"), ChainComponent("B"),
                  ResIndexComponent(3), CoordXComponent(3.0), CoordYComponent(3.0), CoordZComponent(3.0),
-                 OccupancyComponent(1), TemperatureFactorComponent(0), NameComponent("O"))
+                 OccupancyComponent(1), TemperatureFactorComponent(0), NameComponent("O"), SectionComponent("ATOM"))
 
     return [atom1, atom2, atom3]
 
@@ -42,7 +42,7 @@ def test_filter_resname(example_atoms):
     os.remove(filename)
 
     true_text = f"ATOM      1  C   MET A   1       1.000   1.000   1.000  1.00  0.00           C  \n"\
-                f"ATOM      2  N   GLU B   2       2.000   2.000   2.000  1.00  0.00           N  \n"
+                f"ATOM      2  N   GLU B   2       2.000   2.000   2.000  1.00  0.00           N  "
 
     assert true_text == file_text
 
@@ -62,6 +62,6 @@ def test_filter_chain(example_atoms):
     os.remove(filename)
 
     true_text = f"ATOM      2  N   GLU B   2       2.000   2.000   2.000  1.00  0.00           N  \n"\
-                f"ATOM      3  O   HIS B   3       3.000   3.000   3.000  1.00  0.00           O  \n"
+                f"ATOM      3  O   HIS B   3       3.000   3.000   3.000  1.00  0.00           O  "
 
     assert true_text == file_text

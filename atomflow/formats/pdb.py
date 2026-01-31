@@ -6,7 +6,7 @@ from atomflow.components import *
 from atomflow.aspects import *
 from atomflow.atom import Atom
 from atomflow.formats import Format
-from atomflow.knowledge.codes import POLYMER_CODE_SETS
+from atomflow.knowledge.codes import POLYMER_CODE_SETS, POLYMER_RESIDUE_CODES
 
 
 class PDBFormat(Format):
@@ -144,8 +144,8 @@ class PDBFormat(Format):
                 if data["section"][i] == "HETATM":
                     continue
                 # For ATOM records, assign polymer type
-                if field == "strand_id" and value in polymer_classes:
-                    cmps.append(polymer_classes[value])
+                # if field == "strand_id" and value in polymer_classes:
+                #     cmps.append(polymer_classes[value])
             atoms.append(Atom(*cmps))
 
         return atoms
@@ -160,7 +160,7 @@ class PDBFormat(Format):
                 raise ValueError(f"{atom} does not implement aspects required for PDB format")
             for field, col in data.items():
                 if field == "section":
-                    value = "ATOM" if atom.implements(PolymerAspect) else "HETATM"
+                    value = "ATOM" if atom.resname in POLYMER_RESIDUE_CODES else "HETATM"
                     col.append(value)
                     continue
                 aspect = cls._asp_map[field]

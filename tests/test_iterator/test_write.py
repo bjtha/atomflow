@@ -13,17 +13,17 @@ TEST_FOLDER = pathlib.Path("./tests/test_iterator")
 @pytest.fixture
 def example_atoms() -> list[Atom]:
 
-    atom1 = Atom(IndexComponent(1), ElementComponent("C"), AAResidueComponent("MET"), ChainComponent("A"),
+    atom1 = Atom(IndexComponent(1), ElementComponent("C"), ResidueComponent("MET"), ChainComponent("A"),
                  ResIndexComponent(1), CoordXComponent(1.0), CoordYComponent(1.0), CoordZComponent(1.0),
-                 OccupancyComponent(1), TemperatureFactorComponent(0), NameComponent("C"), EntityComponent("test"))
+                 OccupancyComponent(1), TemperatureFactorComponent(0), NameComponent("C"), SectionComponent("ATOM"))
 
-    atom2 = Atom(IndexComponent(2), ElementComponent("N"), AAResidueComponent("GLU"), ChainComponent("B"),
+    atom2 = Atom(IndexComponent(2), ElementComponent("N"), ResidueComponent("GLU"), ChainComponent("B"),
                  ResIndexComponent(2), CoordXComponent(2.0), CoordYComponent(2.0), CoordZComponent(2.0),
-                 OccupancyComponent(1), TemperatureFactorComponent(0), NameComponent("N"), EntityComponent("test"))
+                 OccupancyComponent(1), TemperatureFactorComponent(0), NameComponent("N"), SectionComponent("ATOM"))
 
-    atom3 = Atom(IndexComponent(3), ElementComponent("O"), AAResidueComponent("HIS"), ChainComponent("B"),
+    atom3 = Atom(IndexComponent(3), ElementComponent("O"), ResidueComponent("HIS"), ChainComponent("B"),
                  ResIndexComponent(3), CoordXComponent(3.0), CoordYComponent(3.0), CoordZComponent(3.0),
-                 OccupancyComponent(1), TemperatureFactorComponent(0), NameComponent("O"), EntityComponent("test"))
+                 OccupancyComponent(1), TemperatureFactorComponent(0), NameComponent("O"), SectionComponent("ATOM"))
 
     return [atom1, atom2, atom3]
 
@@ -47,9 +47,12 @@ def test_write_multiple_fasta(example_atoms):
 
     """Each group of atoms is written to a different fasta file."""
 
-    true_texts = [">test\nM\n", ">test\nE\n", ">test\nH\n"]
+    true_texts = [">test_A_A\nM\n", ">test_B_B\nEH\n"]
 
-    files, errs = AtomIterator.from_list(example_atoms).write(TEST_FOLDER / "test.fasta")
+    files, errs = AtomIterator\
+        .from_list(example_atoms)\
+        .group_by("chain")\
+        .write(TEST_FOLDER / "test_{}.fasta", path_fmt=["chain"])
 
     file_texts = []
     for filename in files:
@@ -70,7 +73,7 @@ def test_write_single_fasta(example_atoms):
         file_text = file.read()
     os.remove(filename)
 
-    assert ">test\nMEH\n" == file_text
+    assert ">test_A\nM\n>test_B\nEH\n" == file_text
 
 
 def test_insufficient_fasta_data(example_atoms):
@@ -78,7 +81,7 @@ def test_insufficient_fasta_data(example_atoms):
     """The fasta format quietly excludes atoms which don't fit the format recipe."""
 
     # Lacks index
-    atom_d = Atom(AAResidueComponent("GLY"), EntityComponent("test"))
+    atom_d = Atom(ResidueComponent("GLY"))
 
     bad_atoms = example_atoms + [atom_d]
     (filename,), _ = AtomIterator.from_list(bad_atoms).collect().write(TEST_FOLDER / "test.fasta")
@@ -87,7 +90,7 @@ def test_insufficient_fasta_data(example_atoms):
         file_text = file.read()
     os.remove(filename)
 
-    assert ">test\nMEH\n" == file_text
+    assert ">test_A\nM\n>test_B\nEH\n" == file_text
 
 
 def test_write_single_pdb(example_atoms):
@@ -102,7 +105,7 @@ def test_write_single_pdb(example_atoms):
 
     true_text = f"ATOM      1  C   MET A   1       1.000   1.000   1.000  1.00  0.00           C  \n"\
                 f"ATOM      2  N   GLU B   2       2.000   2.000   2.000  1.00  0.00           N  \n"\
-                f"ATOM      3  O   HIS B   3       3.000   3.000   3.000  1.00  0.00           O  \n"
+                f"ATOM      3  O   HIS B   3       3.000   3.000   3.000  1.00  0.00           O  "
 
     assert true_text == file_text
 
@@ -125,10 +128,10 @@ def test_write_multiple_pdb(example_atoms):
 
     chain_a, chain_b = texts
 
-    assert chain_a == "ATOM      1  C   MET A   1       1.000   1.000   1.000  1.00  0.00           C  \n"
+    assert chain_a == "ATOM      1  C   MET A   1       1.000   1.000   1.000  1.00  0.00           C  "
 
     assert chain_b == f"ATOM      2  N   GLU B   2       2.000   2.000   2.000  1.00  0.00           N  \n"\
-                      f"ATOM      3  O   HIS B   3       3.000   3.000   3.000  1.00  0.00           O  \n"
+                      f"ATOM      3  O   HIS B   3       3.000   3.000   3.000  1.00  0.00           O  "
 
 
 def test_outpath_formating(example_atoms):

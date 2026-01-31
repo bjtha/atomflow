@@ -22,9 +22,9 @@ def test_read_fasta():
     finally:
         os.remove(test_filename)
 
-    atom_m = Atom(AAResidueComponent("MET"), ResIndexComponent(1), EntityComponent("test"))
-    atom_v = Atom(AAResidueComponent("VAL"), ResIndexComponent(2), EntityComponent("test"))
-    atom_d = Atom(AAResidueComponent("ASP"), ResIndexComponent(3), EntityComponent("test"))
+    atom_m = Atom(ResidueComponent("MET"), ResIndexComponent(1), ChainComponent("A"))
+    atom_v = Atom(ResidueComponent("VAL"), ResIndexComponent(2), ChainComponent("A"))
+    atom_d = Atom(ResidueComponent("ASP"), ResIndexComponent(3), ChainComponent("A"))
 
     assert list(a_iter) == [(atom_m,), (atom_v,), (atom_d,)]
 
@@ -37,7 +37,7 @@ def test_read_pdb():
 
     text = f"ATOM      1  C   MET A   1       1.000   1.000   1.000  1.00  0.00           C  \n" \
            f"ATOM      2  N   GLU B   2       2.000   2.000   2.000  1.00  0.00           N  \n" \
-           f"ATOM      3  O   HIS B   3       3.000   3.000   3.000  1.00  0.00           O  \n"
+           f"ATOM      3  O   HIS B   3       3.000   3.000   3.000  1.00  0.00           O  "
 
     with open(test_filename, "w") as file:
         file.write(text)
@@ -47,16 +47,16 @@ def test_read_pdb():
     finally:
         os.remove(test_filename)
 
-    atom_m = Atom(IndexComponent(1), ElementComponent("C"), AAResidueComponent("MET"), ChainComponent("A"),
+    atom_m = Atom(IndexComponent(1), ElementComponent("C"), ResidueComponent("MET"), ChainComponent("A"),
                  ResIndexComponent(1), CoordXComponent(1.0), CoordYComponent(1.0), CoordZComponent(1.0),
-                 OccupancyComponent(1), TemperatureFactorComponent(0), NameComponent("C"))
+                 OccupancyComponent(1), TemperatureFactorComponent(0), NameComponent("C"), SectionComponent("ATOM"))
 
-    atom_e = Atom(IndexComponent(2), ElementComponent("N"), AAResidueComponent("GLU"), ChainComponent("B"),
+    atom_e = Atom(IndexComponent(2), ElementComponent("N"), ResidueComponent("GLU"), ChainComponent("B"),
                  ResIndexComponent(2), CoordXComponent(2.0), CoordYComponent(2.0), CoordZComponent(2.0),
-                 OccupancyComponent(1), TemperatureFactorComponent(0), NameComponent("N"))
+                 OccupancyComponent(1), TemperatureFactorComponent(0), NameComponent("N"), SectionComponent("ATOM"))
 
-    atom_h = Atom(IndexComponent(3), ElementComponent("O"), AAResidueComponent("HIS"), ChainComponent("B"),
+    atom_h = Atom(IndexComponent(3), ElementComponent("O"), ResidueComponent("HIS"), ChainComponent("B"),
                  ResIndexComponent(3), CoordXComponent(3.0), CoordYComponent(3.0), CoordZComponent(3.0),
-                 OccupancyComponent(1), TemperatureFactorComponent(0), NameComponent("O"))
+                 OccupancyComponent(1), TemperatureFactorComponent(0), NameComponent("O"), SectionComponent("ATOM"))
 
     assert list(a_iter) == [(atom_m,), (atom_e,), (atom_h,)]
